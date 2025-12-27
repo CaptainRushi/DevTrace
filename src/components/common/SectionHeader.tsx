@@ -7,12 +7,16 @@ interface SectionHeaderProps {
   href?: string;
   linkText?: string;
   className?: string;
+  icon?: React.ReactNode;
 }
 
-export function SectionHeader({ title, href, linkText = 'View all', className }: SectionHeaderProps) {
+export function SectionHeader({ title, href, linkText = 'View all', className, icon }: SectionHeaderProps) {
   return (
     <div className={cn('flex items-center justify-between', className)}>
-      <h2 className="terminal-heading text-xl font-bold">{title}</h2>
+      <div className="flex items-center gap-2">
+        {icon}
+        <h2 className="terminal-heading text-xl font-bold">{title}</h2>
+      </div>
       {href && (
         <Link
           to={href}

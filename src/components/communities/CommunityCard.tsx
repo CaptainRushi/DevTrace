@@ -1,17 +1,37 @@
+import { memo } from 'react';
 import { Link } from 'react-router-dom';
-import { Users, FileText, ArrowRight } from 'lucide-react';
+import { Users, FileText, ArrowRight, Check } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { Community } from '@/data/mockData';
+// import { Community } from '@/data/mockData';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils'; // Ensure cn is imported if used, otherwise import it or use simple string concat
+
+interface Community {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  icon: string;
+  memberCount: number;
+  postCount?: number;
+  tags?: string[];
+  isJoined?: boolean;
+}
 
 interface CommunityCardProps {
   community: Community;
   index?: number;
   compact?: boolean;
+  onJoinClick?: (id: string) => void;
+  joining?: boolean;
 }
 
-export function CommunityCard({ community, index = 0, compact = false }: CommunityCardProps) {
+export const CommunityCard = memo(({ community, index = 0, compact = false, onJoinClick, joining = false }: CommunityCardProps) => {
   if (compact) {
+    const displayMembers = community.memberCount > 1000
+      ? `${(community.memberCount / 1000).toFixed(1)}k`
+      : community.memberCount;
+
     return (
       <Link
         to={`/community/${community.slug}`}
@@ -21,12 +41,20 @@ export function CommunityCard({ community, index = 0, compact = false }: Communi
         <div className="flex-1 min-w-0">
           <h3 className="font-medium text-foreground truncate">{community.name}</h3>
           <p className="text-xs text-muted-foreground">
-            {(community.memberCount / 1000).toFixed(1)}k members
+            {displayMembers} members
           </p>
         </div>
       </Link>
     );
   }
+
+  const displayMembers = community.memberCount > 1000
+    ? `${(community.memberCount / 1000).toFixed(1)}k`
+    : community.memberCount;
+
+  const displayPosts = (community.postCount || 0) > 1000
+    ? `${((community.postCount || 0) / 1000).toFixed(1)}k`
+    : (community.postCount || 0);
 
   return (
     <motion.div
@@ -40,9 +68,11 @@ export function CommunityCard({ community, index = 0, compact = false }: Communi
           {community.icon}
         </div>
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors">
-            {community.name}
-          </h3>
+          <Link to={`/community/${community.slug}`}>
+            <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors">
+              {community.name}
+            </h3>
+          </Link>
           <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
             {community.description}
           </p>
@@ -53,17 +83,17 @@ export function CommunityCard({ community, index = 0, compact = false }: Communi
       <div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground">
         <span className="flex items-center gap-1.5">
           <Users className="h-4 w-4" />
-          {(community.memberCount / 1000).toFixed(1)}k
+          {displayMembers}
         </span>
         <span className="flex items-center gap-1.5">
           <FileText className="h-4 w-4" />
-          {(community.postCount / 1000).toFixed(1)}k posts
+          {displayPosts} posts
         </span>
       </div>
 
       {/* Tags */}
       <div className="mt-3 flex flex-wrap gap-1.5">
-        {community.tags.slice(0, 4).map((tag) => (
+        {(community.tags || []).slice(0, 4).map((tag) => (
           <span key={tag} className="tag text-xs">
             {tag}
           </span>
@@ -72,10 +102,38 @@ export function CommunityCard({ community, index = 0, compact = false }: Communi
 
       {/* Join Button */}
       <div className="mt-4 flex items-center justify-between">
-        <Button variant="outline" size="sm" className="group/btn">
-          Join Community
-          <ArrowRight className="ml-1 h-3 w-3 transition-transform group-hover/btn:translate-x-0.5" />
-        </Button>
+        {onJoinClick && (
+          <Button
+            variant={community.isJoined ? "outline" : "default"} // Outline if joined, Primary if not
+            size="sm"
+            className={cn("group/btn", community.isJoined && "border-primary text-primary hover:bg-primary/10")}
+            onClick={(e) => {
+              e.preventDefault();
+              onJoinClick(community.id);
+            }}
+            disabled={joining}
+          >
+            {community.isJoined ? (
+              <>
+                Joined
+                <Check className="ml-1 h-3 w-3" />
+              </>
+            ) : (
+              <>
+                Join Community
+                <ArrowRight className="ml-1 h-3 w-3 transition-transform group-hover/btn:translate-x-0.5" />
+              </>
+            )}
+          </Button>
+        )}
+        {!onJoinClick && (
+          <Button variant="outline" size="sm" asChild>
+            <Link to={`/community/${community.slug}`}>
+              View Details
+            </Link>
+          </Button>
+        )}
+
         <Link
           to={`/community/${community.slug}`}
           className="text-sm font-medium text-primary hover:underline"
@@ -85,4 +143,4 @@ export function CommunityCard({ community, index = 0, compact = false }: Communi
       </div>
     </motion.div>
   );
-}
+});

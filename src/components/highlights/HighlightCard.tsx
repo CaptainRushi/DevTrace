@@ -1,19 +1,32 @@
+import { memo } from 'react';
 import { motion } from 'framer-motion';
-import { DailyHighlight } from '@/data/mockData';
+// import { DailyHighlight } from '@/data/mockData';
 import { Link } from 'react-router-dom';
+
+interface DailyHighlight {
+  id: string;
+  content: string;
+  createdAt: string; // created_at mapped
+  author: {
+    displayName: string;
+    username: string;
+    avatar: string;
+  };
+  reactions?: { emoji: string; count: number }[];
+}
 
 interface HighlightCardProps {
   highlight: DailyHighlight;
   index?: number;
 }
 
-export function HighlightCard({ highlight, index = 0 }: HighlightCardProps) {
+export const HighlightCard = memo(({ highlight, index = 0 }: HighlightCardProps) => {
   const timeAgo = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    
+
     if (diffHours < 1) return 'Just now';
     if (diffHours < 24) return `${diffHours}h ago`;
     return `${Math.floor(diffHours / 24)}d ago`;
@@ -28,7 +41,7 @@ export function HighlightCard({ highlight, index = 0 }: HighlightCardProps) {
     >
       {/* Timeline connector */}
       <div className="absolute left-5 top-12 bottom-0 w-px bg-border" />
-      
+
       <div className="relative flex gap-4">
         {/* Avatar with timeline dot */}
         <div className="relative shrink-0">
@@ -36,6 +49,8 @@ export function HighlightCard({ highlight, index = 0 }: HighlightCardProps) {
             <img
               src={highlight.author.avatar}
               alt={highlight.author.displayName}
+              loading="lazy"
+              decoding="async"
               className="h-10 w-10 rounded-full ring-2 ring-background"
             />
           </Link>
@@ -63,7 +78,7 @@ export function HighlightCard({ highlight, index = 0 }: HighlightCardProps) {
 
             {/* Reactions */}
             <div className="mt-3 flex items-center gap-2">
-              {highlight.reactions.map((reaction, i) => (
+              {(highlight.reactions || []).map((reaction, i) => (
                 <button
                   key={i}
                   className="flex items-center gap-1 rounded-full bg-muted px-2 py-1 text-sm transition-colors hover:bg-muted/80"
@@ -81,4 +96,4 @@ export function HighlightCard({ highlight, index = 0 }: HighlightCardProps) {
       </div>
     </motion.div>
   );
-}
+});

@@ -1,19 +1,54 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Briefcase, Filter, MapPin, Search } from 'lucide-react';
-import { Layout } from '@/components/layout/Layout';
+import { Briefcase, Filter, MapPin, Search, Loader2 } from 'lucide-react';
+
 import { JobCard } from '@/components/jobs/JobCard';
+import { JobSkeleton } from '@/components/common/Skeletons';
 import { SectionHeader } from '@/components/common/SectionHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { jobs } from '@/data/mockData';
+import { supabase } from "@/lib/supabase";
 
 type JobFilter = 'all' | 'full-time' | 'freelance' | 'remote' | 'internship';
 
 const JobsPage = () => {
   const [filter, setFilter] = useState<JobFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [jobs, setJobs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchJobs = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('job_posts')
+          .select('*');
+
+        if (error) throw error;
+
+        if (data) {
+          setJobs(data.map(job => ({
+            id: job.id,
+            title: job.role,
+            company: job.company,
+            location: job.location,
+            type: job.type || 'full-time',
+            salary: 'Competitive',
+            postedAt: job.created_at,
+            tags: job.stack || [],
+            logo: `https://ui-avatars.com/api/?name=${encodeURIComponent(job.company)}&background=random`
+          })));
+        }
+      } catch (e) {
+        console.error("Fetch jobs error", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchJobs();
+  }, []);
 
   const filteredJobs = jobs.filter((job) => {
     if (filter !== 'all' && job.type !== filter) return false;
@@ -22,7 +57,7 @@ const JobsPage = () => {
   });
 
   return (
-    <Layout>
+    <>
       <div className="space-y-8">
         {/* Header */}
         <motion.div
@@ -66,27 +101,33 @@ const JobsPage = () => {
 
         {/* Jobs Grid */}
         <div className="grid gap-4 md:grid-cols-2">
-          {filteredJobs.map((job, index) => (
-            <JobCard key={job.id} job={job} index={index} />
-          ))}
+          {loading ? (
+            [...Array(6)].map((_, i) => (
+              <JobSkeleton key={i} />
+            ))
+          ) : filteredJobs.length > 0 ? (
+            filteredJobs.map((job, index) => (
+              <JobCard key={job.id} job={job} index={index} />
+            ))
+          ) : (
+            <div className="col-span-full rounded-xl border border-dashed border-border p-12 text-center">
+              <MapPin className="mx-auto h-12 w-12 text-muted-foreground" />
+              <h3 className="mt-4 text-lg font-semibold text-foreground">No jobs found</h3>
+              <p className="mt-2 text-muted-foreground">Try adjusting your filters</p>
+            </div>
+          )}
         </div>
-
-        {filteredJobs.length === 0 && (
-          <div className="rounded-xl border border-dashed border-border p-12 text-center">
-            <MapPin className="mx-auto h-12 w-12 text-muted-foreground" />
-            <h3 className="mt-4 text-lg font-semibold text-foreground">No jobs found</h3>
-            <p className="mt-2 text-muted-foreground">Try adjusting your filters</p>
-          </div>
-        )}
 
         {/* Post Job CTA */}
         <div className="rounded-xl border border-primary/30 bg-gradient-to-br from-primary/10 to-secondary/10 p-6 text-center">
           <h3 className="font-mono text-lg font-bold text-primary">Hiring developers?</h3>
           <p className="mt-2 text-muted-foreground">Post your job to reach thousands of talented developers</p>
-          <Button className="mt-4">Post a Job</Button>
+          <Link to="/jobs/create">
+            <Button className="mt-4">Post a Job</Button>
+          </Link>
         </div>
       </div>
-    </Layout>
+    </>
   );
 };
 

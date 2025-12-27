@@ -1,9 +1,23 @@
 import { Link } from 'react-router-dom';
 import { Users, MessageCircle, Trophy } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { Challenge } from '@/data/mockData';
+// import { Challenge } from '@/data/mockData';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+
+interface Challenge {
+  id: string;
+  title: string;
+  description: string;
+  difficulty: 'easy' | 'medium' | 'hard';
+  tags: string[];
+  submissions: number;
+  author: {
+    displayName: string;
+    username: string;
+    avatar: string;
+  };
+}
 
 interface ChallengeCardProps {
   challenge: Challenge;
@@ -67,9 +81,11 @@ export function ChallengeCard({ challenge, index = 0 }: ChallengeCardProps) {
             by {challenge.author.displayName}
           </span>
         </div>
-        <Button variant="outline" size="sm">
-          Solve Challenge
-        </Button>
+        <Link to={`/challenges/${challenge.id}`}>
+          <Button variant="outline" size="sm">
+            View Details
+          </Button>
+        </Link>
       </div>
     </motion.div>
   );

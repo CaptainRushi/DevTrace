@@ -5,6 +5,7 @@
 @import "@fontsource/inter/500.css";
 @import "@fontsource/inter/600.css";
 @import "@fontsource/inter/700.css";
+@import "@fontsource/jersey-10/400.css";
 
 @tailwind base;
 @tailwind components;
@@ -110,7 +111,12 @@
     font-family: var(--font-sans);
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     font-family: var(--font-sans);
   }
 
@@ -120,6 +126,7 @@
 }
 
 @layer components {
+
   /* Terminal-style hashtag headings */
   .terminal-heading {
     @apply font-mono text-primary relative inline-flex items-center;
@@ -132,7 +139,7 @@
 
   /* Grid pattern background */
   .bg-grid-pattern {
-    background-image: 
+    background-image:
       radial-gradient(circle at 1px 1px, hsl(var(--muted-foreground) / 0.15) 1px, transparent 0);
     background-size: 24px 24px;
   }
@@ -143,8 +150,8 @@
   }
 
   .card-glow:hover {
-    box-shadow: 0 0 20px hsl(var(--primary) / 0.15), 
-                0 0 40px hsl(var(--primary) / 0.1);
+    box-shadow: 0 0 20px hsl(var(--primary) / 0.15),
+      0 0 40px hsl(var(--primary) / 0.1);
     border-color: hsl(var(--primary) / 0.5);
   }
 
@@ -212,11 +219,52 @@
   }
 
   /* Activity graph colors */
-  .activity-0 { @apply bg-muted; }
-  .activity-1 { @apply bg-primary/25; }
-  .activity-2 { @apply bg-primary/50; }
-  .activity-3 { @apply bg-primary/75; }
-  .activity-4 { @apply bg-primary; }
+  .activity-0 {
+    @apply bg-muted;
+  }
+
+  .activity-1 {
+    @apply bg-primary/25;
+  }
+
+  .activity-2 {
+    @apply bg-primary/50;
+  }
+
+  .activity-3 {
+    @apply bg-primary/75;
+  }
+
+  .activity-4 {
+    @apply bg-primary;
+  }
+
+  /* Running Logo Animation */
+  .running-trace {
+    stroke-dasharray: 24 200;
+  }
+
+  .animate-trace-run {
+    animation: traceRun 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+
+  @keyframes traceRun {
+    0% {
+      stroke-dashoffset: 70;
+    }
+
+    100% {
+      stroke-dashoffset: -130;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-trace-run {
+      animation: none;
+      stroke-dasharray: none;
+      stroke-dashoffset: 0;
+    }
+  }
 }
 
 @layer utilities {

@@ -1,10 +1,14 @@
-import { activityData } from '@/data/mockData';
+// import { activityData } from '@/data/mockData';
 
 interface ActivityGraphProps {
   data?: number[][];
 }
 
-export function ActivityGraph({ data = activityData }: ActivityGraphProps) {
+const defaultActivityData = Array.from({ length: 52 }, () =>
+  Array.from({ length: 7 }, () => Math.floor(Math.random() * 5))
+);
+
+export function ActivityGraph({ data = defaultActivityData }: ActivityGraphProps) {
   const activityLevels = ['activity-0', 'activity-1', 'activity-2', 'activity-3', 'activity-4'];
 
   return (

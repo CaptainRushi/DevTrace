@@ -16,6 +16,8 @@ export default {
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],
         mono: ["JetBrains Mono", "monospace"],
+        iceland: ["Iceland", "sans-serif"],
+        jersey: ['"Jersey 10"', "sans-serif"],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -108,6 +110,18 @@ export default {
           "0%": { backgroundPosition: "-200% 0" },
           "100%": { backgroundPosition: "200% 0" },
         },
+        "underline-run": {
+          "0%": { transform: "translateX(-100%)" },
+          "100%": { transform: "translateX(100%)" },
+        },
+        "logo-3d-float": {
+          "0%, 100%": { transform: "rotateY(-6deg) rotateX(2deg) translateZ(12px)" },
+          "50%": { transform: "rotateY(6deg) rotateX(-2deg) translateZ(18px)" },
+        },
+        "light-sweep": {
+          "0%": { transform: "translateX(-150%) skewX(-25deg)" },
+          "100%": { transform: "translateX(150%) skewX(-25deg)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -117,6 +131,9 @@ export default {
         "slide-in-right": "slide-in-right 0.3s ease-out",
         "pulse-glow": "pulse-glow 2s ease-in-out infinite",
         shimmer: "shimmer 2s linear infinite",
+        "underline-run": "underline-run 3s linear infinite",
+        "logo-3d-float": "logo-3d-float 4s ease-in-out infinite",
+        "light-sweep": "light-sweep 6s linear infinite",
       },
     },
   },

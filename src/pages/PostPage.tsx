@@ -1,27 +1,163 @@
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Heart, MessageCircle, Bookmark, Share2, Clock, Eye } from 'lucide-react';
-import { Layout } from '@/components/layout/Layout';
+import { ArrowLeft, Heart, MessageCircle, Bookmark, Share2, Clock, Eye, Loader2 } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { posts } from '@/data/mockData';
+import { useEffect, useState } from 'react';
+import { supabase } from "@/lib/supabase";
+import { formatDistanceToNow } from 'date-fns';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
+import { MarkdownRenderer } from '@/components/common/MarkdownRenderer';
+
+// Helper to transform Supabase user to UI user shape (Duplicated)
+const transformUser = (dbUser: any, authUser: any) => ({
+  id: dbUser.id || authUser?.id,
+  username: dbUser.username || "Anonymous",
+  displayName: dbUser.username || "Anonymous",
+  avatar: dbUser.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${dbUser.username}`,
+});
 
 const PostPage = () => {
   const { id } = useParams<{ id: string }>();
-  const post = posts.find((p) => p.id === id);
+  const [post, setPost] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [comments, setComments] = useState<any[]>([]);
+  const [newComment, setNewComment] = useState('');
+  const [submittingComment, setSubmittingComment] = useState(false);
+  const { user } = useAuth();
+
+  const fetchPost = async () => {
+    if (!id) return;
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('posts')
+        .select(`
+                *,
+                author:users!posts_user_id_fkey(*),
+                community:communities!posts_community_id_fkey(*),
+                votes(value),
+                comments(
+                    id,
+                    content,
+                    created_at,
+                    user_id,
+                    user:users(*)
+                )
+            `)
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+
+      // Transform
+      const transformedPost = {
+        id: data.id,
+        title: data.title,
+        content: data.content,
+        excerpt: data.content.slice(0, 150) + '...',
+        author: transformUser(data.author, null),
+        community: {
+          ...data.community,
+          icon: '🚀'
+        },
+        readTime: Math.ceil(data.content.length / 500) || 1, // Crude calc
+        created_at: data.created_at,
+        hashtags: data.hashtags || [],
+        likes: data.votes?.filter((v: any) => v.value === 1).length || 0,
+        views: 100, // Placeholder
+      };
+
+      setPost(transformedPost);
+
+      if (data.comments) {
+        setComments(data.comments.map((c: any) => ({
+          id: c.id,
+          content: c.content,
+          created_at: c.created_at,
+          user: transformUser(c.user, null)
+        })));
+      }
+
+    } catch (error) {
+      console.error("Error fetching post", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPost();
+  }, [id]);
+
+  const handlePostComment = async () => {
+    if (!newComment.trim()) return;
+    if (!user) {
+      toast.error("Please sign in to comment");
+      return;
+    }
+
+    setSubmittingComment(true);
+    try {
+      const { error } = await supabase
+        .from('comments')
+        .insert({
+          content: newComment.trim(),
+          post_id: id,
+          user_id: user.id
+        });
+
+      if (error) throw error;
+
+      toast.success("Comment posted!");
+      setNewComment('');
+      fetchPost(); // Refresh completely to get new comment and show it
+    } catch (e) {
+      toast.error("Failed to post comment");
+      console.error(e);
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="max-w-3xl mx-auto space-y-8 animate-pulse">
+        <div className="h-6 w-24 bg-muted rounded" />
+        <div className="space-y-4">
+          <div className="h-48 w-full bg-muted rounded-xl" />
+          <div className="h-10 w-3/4 bg-muted rounded" />
+          <div className="flex gap-4">
+            <div className="h-10 w-10 rounded-full bg-muted" />
+            <div className="space-y-2">
+              <div className="h-4 w-24 bg-muted rounded" />
+              <div className="h-3 w-32 bg-muted rounded" />
+            </div>
+          </div>
+        </div>
+        <div className="space-y-3">
+          <div className="h-4 w-full bg-muted rounded" />
+          <div className="h-4 w-full bg-muted rounded" />
+          <div className="h-4 w-2/3 bg-muted rounded" />
+        </div>
+      </div>
+    );
+  }
 
   if (!post) {
     return (
-      <Layout>
+      <>
         <div className="flex items-center justify-center min-h-[50vh]">
           <p className="text-muted-foreground">Post not found</p>
         </div>
-      </Layout>
+      </>
     );
   }
 
   return (
-    <Layout>
+    <>
       <div className="max-w-3xl mx-auto space-y-6">
         {/* Back button */}
         <Link to="/">
@@ -62,34 +198,29 @@ const PostPage = () => {
                   <Clock className="h-3 w-3" />
                   {post.readTime} min read
                 </span>
+                <span>·</span>
+                <span>{formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}</span>
               </div>
             </div>
           </div>
 
           {/* Title */}
-          <h1 className="mt-6 text-3xl font-bold text-foreground">
+          <h1 className="mt-6 text-4xl font-bold font-iceland text-foreground tracking-wide">
             {post.title}
           </h1>
 
-          {/* Tags */}
+          {/* Hashtags */}
           <div className="mt-4 flex flex-wrap gap-2">
-            {post.tags.map((tag) => (
-              <span key={tag} className="tag">#{tag}</span>
+            {post.hashtags?.map((tag: string) => (
+              <Link key={tag} to={`/?hashtag=${encodeURIComponent(tag)}`} className="tag hover:text-primary">
+                {tag}
+              </Link>
             ))}
           </div>
 
           {/* Content */}
-          <div className="mt-8 prose prose-invert max-w-none">
-            <p className="text-foreground leading-relaxed">
-              {post.content}
-            </p>
-            <p className="text-foreground leading-relaxed mt-4">
-              {post.excerpt}
-            </p>
-            <p className="text-muted-foreground mt-4">
-              This is a preview of the post content. Full markdown rendering would be implemented here
-              with syntax highlighting for code blocks, proper heading hierarchy, and more.
-            </p>
+          <div className="mt-8">
+            <MarkdownRenderer content={post.content} />
           </div>
 
           {/* Actions */}
@@ -101,7 +232,7 @@ const PostPage = () => {
               </Button>
               <Button variant="ghost" size="sm" className="gap-1.5">
                 <MessageCircle className="h-4 w-4" />
-                {post.comments}
+                {comments.length}
               </Button>
               <span className="flex items-center gap-1 text-sm text-muted-foreground">
                 <Eye className="h-4 w-4" />
@@ -126,26 +257,50 @@ const PostPage = () => {
           transition={{ delay: 0.2 }}
           className="rounded-xl border border-border bg-card p-6"
         >
-          <h3 className="terminal-heading text-lg font-bold">comments</h3>
+          <h3 className="terminal-heading text-lg font-bold">comments ({comments.length})</h3>
 
           <div className="mt-4">
             <Textarea
               placeholder="Share your thoughts..."
               className="min-h-[100px]"
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
             />
             <div className="mt-3 flex justify-end">
-              <Button>Post Comment</Button>
+              <Button onClick={handlePostComment} disabled={submittingComment || !newComment.trim()}>
+                {submittingComment && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Post Comment
+              </Button>
             </div>
           </div>
 
-          <div className="mt-6 border-t border-border pt-6">
-            <p className="text-center text-muted-foreground">
-              No comments yet. Be the first to share your thoughts!
-            </p>
+          <div className="mt-6 border-t border-border pt-6 space-y-6">
+            {comments.length > 0 ? (
+              comments.map((comment) => (
+                <div key={comment.id} className="flex gap-4">
+                  <img
+                    src={comment.user.avatar}
+                    alt={comment.user.username}
+                    className="w-8 h-8 rounded-full bg-muted"
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-sm">{comment.user.displayName}</span>
+                      <span className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}</span>
+                    </div>
+                    <p className="text-sm mt-1 whitespace-pre-wrap">{comment.content}</p>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-center text-muted-foreground">
+                No comments yet. Be the first to share your thoughts!
+              </p>
+            )}
           </div>
         </motion.div>
       </div>
-    </Layout>
+    </>
   );
 };
 

@@ -7,13 +7,21 @@ import {
   Zap,
   Wrench,
   Github,
-  BookOpen,
-  TrendingUp,
+  Loader2,
+  ChevronRight, // Kept only if needed for something else, but likely removing
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { communities } from '@/data/mockData';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { supabase } from "@/lib/supabase";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import { CommunitySkeleton } from '@/components/common/Skeletons';
+import { prefetchPage } from '@/lib/prefetch';
 
 interface SidebarProps {
   open: boolean;
@@ -26,11 +34,34 @@ const mainNavItems = [
   { icon: Lightbulb, label: 'Challenges', href: '/challenges' },
   { icon: Briefcase, label: 'Jobs', href: '/jobs' },
   { icon: Wrench, label: 'Tools & Stack', href: '/tools' },
-  { icon: Github, label: 'Open Source', href: '/community/open-source' },
+  { icon: Github, label: 'Open Source', href: '/open-source' },
 ];
+
+import { useQuery } from '@tanstack/react-query';
 
 export function Sidebar({ open, onClose }: SidebarProps) {
   const location = useLocation();
+
+  const { data: communities = [], isLoading: loading } = useQuery({
+    queryKey: ['communities-sidebar'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('communities')
+        .select('id, name, slug, icon')
+        .limit(10);
+
+      if (error) throw error;
+
+      return data.map(c => ({
+        id: c.id,
+        name: c.name,
+        slug: c.slug,
+        memberCount: 0,
+        icon: c.icon || '🌍'
+      }));
+    },
+    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
+  });
 
   return (
     <>
@@ -45,111 +76,110 @@ export function Sidebar({ open, onClose }: SidebarProps) {
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed left-0 top-16 z-40 h-[calc(100vh-4rem)] w-64 border-r border-border bg-sidebar transition-transform duration-300 lg:translate-x-0',
-          open ? 'translate-x-0' : '-translate-x-full'
+          'fixed left-0 top-16 z-40 h-[calc(100vh-4rem)] border-r border-border bg-sidebar transition-transform duration-300',
+          'w-[72px]', // Fixed width
+          'lg:translate-x-0', // Always visible on desktop
+          open ? 'translate-x-0' : '-translate-x-full' // Mobile toggle
         )}
       >
         <ScrollArea className="h-full py-4">
-          <nav className="space-y-1 px-3">
+          <nav className="space-y-2 px-2">
             {/* Main Navigation */}
             {mainNavItems.map((item) => {
               const isActive = location.pathname === item.href;
               return (
-                <Link
-                  key={item.href}
-                  to={item.href}
-                  onClick={onClose}
-                  className={cn(
-                    'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                    isActive
-                      ? 'bg-sidebar-accent text-primary'
-                      : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
-                  )}
-                >
-                  <item.icon className="h-5 w-5" />
-                  {item.label}
-                </Link>
+                <TooltipProvider key={item.href} delayDuration={0}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Link
+                        to={item.href}
+                        onClick={onClose}
+                        onMouseEnter={() => prefetchPage(item.href)}
+                        className={cn(
+                          'flex justify-center items-center rounded-lg py-3 transition-colors',
+                          isActive
+                            ? 'bg-sidebar-accent text-primary'
+                            : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+                        )}
+                        aria-label={item.label}
+                      >
+                        <item.icon className="h-6 w-6" />
+                      </Link>
+                    </TooltipTrigger>
+                    <TooltipContent side="right">
+                      {item.label}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               );
             })}
           </nav>
 
-          <Separator className="my-4" />
+          <Separator className="my-4 mx-2 w-auto" />
 
           {/* Communities */}
-          <div className="px-3">
-            <h3 className="mb-3 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Communities
-            </h3>
-            <nav className="space-y-1">
-              {communities.slice(0, 6).map((community) => {
-                const isActive = location.pathname === `/community/${community.slug}`;
-                return (
+          <div className="mt-4 px-2 space-y-2">
+            {loading ? (
+              <div className="space-y-2">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="flex justify-center py-1">
+                    <div className="h-8 w-8 rounded-full bg-muted animate-pulse" />
+                  </div>
+                ))}
+              </div>
+            ) : communities.length > 0 ? (
+              <nav className="space-y-2">
+                {communities.map((community) => {
+                  const isActive = location.pathname === `/community/${community.slug}`;
+                  return (
+                    <TooltipProvider key={community.id} delayDuration={0}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Link
+                            key={community.id}
+                            to={`/community/${community.slug}`}
+                            onClick={onClose}
+                            onMouseEnter={() => prefetchPage(`/community/${community.slug}`)}
+                            className={cn(
+                              'flex justify-center items-center rounded-lg py-2 transition-colors',
+                              isActive
+                                ? 'bg-sidebar-accent text-primary'
+                                : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+                            )}
+                            aria-label={community.name}
+                          >
+                            <span className="text-xl">{community.icon}</span>
+                          </Link>
+                        </TooltipTrigger>
+                        <TooltipContent side="right">
+                          {community.name}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  );
+                })}
+              </nav>
+            ) : null}
+
+            {/* View All Button (Icon Only) */}
+            <TooltipProvider delayDuration={0}>
+              <Tooltip>
+                <TooltipTrigger asChild>
                   <Link
-                    key={community.id}
-                    to={`/community/${community.slug}`}
-                    onClick={onClose}
-                    className={cn(
-                      'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
-                      isActive
-                        ? 'bg-sidebar-accent text-primary'
-                        : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
-                    )}
+                    to="/communities"
+                    onMouseEnter={() => prefetchPage('/communities')}
+                    className="flex justify-center items-center rounded-lg py-2 text-primary hover:bg-sidebar-accent transition-colors"
+                    aria-label="View All Communities"
                   >
-                    <span className="text-base">{community.icon}</span>
-                    <span className="flex-1 truncate">{community.name}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {(community.memberCount / 1000).toFixed(1)}k
-                    </span>
+                    <Users className="h-6 w-6" />
                   </Link>
-                );
-              })}
-            </nav>
-          </div>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  View All Communities
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
 
-          <Separator className="my-4" />
-
-          {/* Resources */}
-          <div className="px-3">
-            <h3 className="mb-3 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Resources
-            </h3>
-            <nav className="space-y-1">
-              <Link
-                to="/roadmap"
-                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-              >
-                <TrendingUp className="h-5 w-5" />
-                Public Roadmap
-              </Link>
-              <Link
-                to="/contribute"
-                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-              >
-                <BookOpen className="h-5 w-5" />
-                Contribute
-              </Link>
-            </nav>
-          </div>
-
-          {/* Footer */}
-          <div className="mt-6 px-6">
-            <div className="rounded-lg border border-border bg-card p-4">
-              <h4 className="font-mono text-sm font-semibold text-primary">
-                Open Source
-              </h4>
-              <p className="mt-1 text-xs text-muted-foreground">
-                This platform is open source. Contribute on GitHub!
-              </p>
-              <a
-                href="https://github.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-3 flex items-center gap-2 text-xs font-medium text-primary hover:underline"
-              >
-                <Github className="h-4 w-4" />
-                View on GitHub
-              </a>
-            </div>
           </div>
         </ScrollArea>
       </aside>
