@@ -370,10 +370,6 @@ const PostPage = () => {
 
           <div className="mt-8 flex items-center justify-between border-t border-border pt-6">
             <div className="flex items-center gap-4">
-              <span className="flex items-center gap-1 text-sm text-muted-foreground">
-                <Eye className="h-4 w-4" />
-                {(post.views / 1000).toFixed(1)}k views
-              </span>
             </div>
 
             <div className="flex gap-2">
