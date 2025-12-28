@@ -362,63 +362,59 @@ const PostPage = () => {
             <MarkdownRenderer content={post.content} />
           </div>
 
+
           {/* Actions */}
           <div className="mt-8 flex items-center justify-between border-t border-border pt-6">
             <div className="flex items-center gap-4">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleLikeToggle}
-                      disabled={likeLoading || !user}
-                      className={cn(
-                        "gap-1.5 transition-all duration-200",
-                        isLiked ? "text-red-500 hover:text-red-600" : "text-muted-foreground hover:text-red-500",
-                        !user && "opacity-60 cursor-not-allowed"
-                      )}
-                    >
-                      <Heart className={cn("h-4 w-4", isLiked && "fill-current")} />
-                      {likesCount}
-                    </Button>
-                  </TooltipTrigger>
-                  {!user && <TooltipContent>Sign in to react</TooltipContent>}
-                </Tooltip>
-              </TooltipProvider>
-              <Button variant="ghost" size="sm" className="gap-1.5">
+              {/* Like Button (Read-Only) */}
+              <div
+                className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground opacity-60 cursor-default select-none"
+                aria-disabled="true"
+                role="button"
+                aria-label={`Likes: ${likesCount} (read-only)`}
+              >
+                <Heart className={cn("h-4 w-4", isLiked && "fill-current text-red-500")} />
+                {likesCount}
+              </div>
+
+              {/* Comment Button (Read-Only) */}
+              <div
+                className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground opacity-60 cursor-default select-none"
+                aria-disabled="true"
+                role="button"
+                aria-label={`Comments: ${comments.length} (read-only)`}
+              >
                 <MessageCircle className="h-4 w-4" />
                 {comments.length}
-              </Button>
-              <span className="flex items-center gap-1 text-sm text-muted-foreground">
+              </div>
+
+              {/* Views (Read-Only) */}
+              <span className="flex items-center gap-1 text-sm text-muted-foreground opacity-60 cursor-default select-none">
                 <Eye className="h-4 w-4" />
                 {(post.views / 1000).toFixed(1)}k views
               </span>
             </div>
+
             <div className="flex gap-2">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className={user ? "" : "opacity-60 cursor-not-allowed"}
-                    >
-                      <Bookmark className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  {!user && <TooltipContent>Sign in to save</TooltipContent>}
-                </Tooltip>
-              </TooltipProvider>
-              <ShareMenu
-                title={post.title}
-                path={`/post/${post.id}`}
-                trigger={
-                  <Button variant="ghost" size="icon">
-                    <Share2 className="h-5 w-5" />
-                  </Button>
-                }
-              />
+              {/* Bookmark (Read-Only) */}
+              <div
+                className="p-2 text-muted-foreground opacity-60 cursor-default select-none"
+                aria-disabled="true"
+                role="button"
+                aria-label="Bookmark (read-only)"
+              >
+                <Bookmark className="h-4 w-4" />
+              </div>
+
+              {/* Share (Read-Only) */}
+              <div
+                className="p-2 text-muted-foreground opacity-60 cursor-default select-none"
+                aria-disabled="true"
+                role="button"
+                aria-label={`Share (read-only)`}
+              >
+                <Share2 className="h-5 w-5" />
+              </div>
             </div>
           </div>
         </motion.article>
@@ -432,31 +428,12 @@ const PostPage = () => {
         >
           <h3 className="terminal-heading text-lg font-bold">comments ({comments.length})</h3>
 
-          {user ? (
-            <div className="mt-4">
-              <Textarea
-                placeholder="Share your thoughts..."
-                className="min-h-[100px]"
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-              />
-              <div className="mt-3 flex justify-end">
-                <Button onClick={handlePostComment} disabled={submittingComment || !newComment.trim()}>
-                  {submittingComment && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Post Comment
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="mt-6 rounded-xl border border-dashed border-primary/20 bg-primary/5 p-8 text-center">
-              <p className="text-muted-foreground mb-4 font-medium">Want to join the discussion?</p>
-              <Link to="/auth/sign-in">
-                <Button variant="outline" className="gap-2">
-                  Sign in to Comment
-                </Button>
-              </Link>
-            </div>
-          )}
+          {/* Commenting is disabled in Full-Screen View */}
+          <div className="mt-6 rounded-xl border border-dashed border-muted bg-muted/20 p-6 text-center">
+            <p className="text-muted-foreground text-sm">
+              Interactions are disabled in this view.
+            </p>
+          </div>
 
           <div className="mt-6 border-t border-border pt-6 space-y-6">
             {comments.length > 0 ? (
@@ -478,7 +455,7 @@ const PostPage = () => {
               ))
             ) : (
               <p className="text-center text-muted-foreground">
-                No comments yet. Be the first to share your thoughts!
+                No comments yet.
               </p>
             )}
           </div>
