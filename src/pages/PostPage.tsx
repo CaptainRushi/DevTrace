@@ -1,6 +1,6 @@
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Heart, MessageCircle, Bookmark, Share2, Clock, Eye, Loader2, MoreVertical, Trash2, Edit } from 'lucide-react';
+import { ArrowLeft, Heart, MessageCircle, Bookmark, Share2, Clock, Eye, Loader2, MoreVertical, Trash2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,8 +18,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useQueryClient } from '@tanstack/react-query';
-import { deletePost as apiDeletePost, toggleLike } from '@/services/api';
-import { useNavigate } from 'react-router-dom';
+import { deletePost as apiDeletePost, toggleLike, toggleBookmark } from '@/services/api';
 
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -30,15 +29,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { MarkdownRenderer } from '@/components/common/MarkdownRenderer';
 import { cn } from '@/lib/utils';
-
-// Helper to transform Supabase user to UI user shape (Duplicated)
-const transformUser = (dbUser: any, authUser: any) => ({
-  id: dbUser.id || authUser?.id,
-  username: dbUser.username || "Anonymous",
-  displayName: dbUser.username || "Anonymous",
-  avatar: dbUser.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${dbUser.username}`,
-});
-
 import { ShareMenu } from '@/components/common/ShareMenu';
 import { FollowButton } from '@/components/common/FollowButton';
 import { UserHoverCard } from '@/components/common/UserHoverCard';
@@ -48,6 +38,14 @@ import {
   TooltipProvider,
   TooltipTrigger
 } from "@/components/ui/tooltip";
+
+// Helper to transform Supabase user to UI user shape
+const transformUser = (dbUser: any, authUser: any) => ({
+  id: dbUser.id || authUser?.id,
+  username: dbUser.username || "Anonymous",
+  displayName: dbUser.username || "Anonymous",
+  avatar: dbUser.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${dbUser.username}`,
+});
 
 const PostPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -61,6 +59,8 @@ const PostPage = () => {
   const [isLiked, setIsLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(0);
   const [likeLoading, setLikeLoading] = useState(false);
+  const [isBookmarked, setIsBookmarked] = useState(false);
+
   const { user, profile } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -80,6 +80,7 @@ const PostPage = () => {
                 author:users!posts_user_id_fkey(*),
                 community:communities!posts_community_id_fkey(*),
                 user_liked_post:post_likes(user_id),
+                user_bookmark:post_bookmarks(user_id),
                 comments(
                     id,
                     content,
@@ -108,12 +109,14 @@ const PostPage = () => {
         readTime: Math.ceil(data.content.length / 500) || 1, // Crude calc
         likes: data.likes_count || 0,
         isLiked: user ? data.user_liked_post?.some((l: any) => l.user_id === user.id) : false,
-        views: 100, // Placeholder
+        isBookmarked: user ? data.user_bookmark?.some((b: any) => b.user_id === user.id) : false,
+        views: data.views || 0,
       };
 
       setPost(transformedPost);
       setIsLiked(transformedPost.isLiked);
       setLikesCount(transformedPost.likes);
+      setIsBookmarked(transformedPost.isBookmarked);
 
       if (data.comments) {
         setComments(data.comments.map((c: any) => ({
@@ -156,12 +159,35 @@ const PostPage = () => {
 
       toast.success("Comment posted!");
       setNewComment('');
-      fetchPost(); // Refresh completely to get new comment and show it
+      fetchPost();
     } catch (e) {
       toast.error("Failed to post comment");
       console.error(e);
     } finally {
       setSubmittingComment(false);
+    }
+  };
+
+  const handleBookmarkToggle = async () => {
+    if (!user || !post) {
+      if (!user) toast.error("Please sign in to save posts");
+      return;
+    }
+
+    const wasBookmarked = isBookmarked;
+    const newBookmarked = !wasBookmarked;
+
+    setIsBookmarked(newBookmarked);
+
+    try {
+      await toggleBookmark(supabase, post.id, wasBookmarked);
+      toast.success(newBookmarked ? "Post saved!" : "Removed from bookmarks");
+      queryClient.invalidateQueries({ queryKey: ['saved-posts'] });
+      queryClient.invalidateQueries({ queryKey: ['user-posts'] });
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to update bookmark");
+      setIsBookmarked(wasBookmarked);
     }
   };
 
@@ -172,20 +198,17 @@ const PostPage = () => {
     const oldLikesCount = likesCount;
     const newLiked = !wasLiked;
 
-    // Optimistic Update
     setIsLiked(newLiked);
     setLikesCount(newLiked ? oldLikesCount + 1 : Math.max(0, oldLikesCount - 1));
     setLikeLoading(true);
 
     try {
       await toggleLike(supabase, post.id, wasLiked);
-      // Invalidate queries to ensure global state is consistent
       queryClient.invalidateQueries({ queryKey: ['posts'] });
       queryClient.invalidateQueries({ queryKey: ['user-posts'] });
     } catch (error) {
       console.error(error);
       toast.error("Failed to update like");
-      // Rollback to exact previous state
       setIsLiked(wasLiked);
       setLikesCount(oldLikesCount);
     } finally {
@@ -199,12 +222,9 @@ const PostPage = () => {
     try {
       await apiDeletePost(supabase, id);
       toast.success("Post deleted successfully");
-
-      // Invalidate queries
       queryClient.invalidateQueries({ queryKey: ['posts'] });
       queryClient.invalidateQueries({ queryKey: ['user-posts'] });
-
-      navigate('/'); // Redirect to home after deletion
+      navigate('/');
     } catch (error) {
       console.error(error);
       toast.error("Failed to delete post");
@@ -229,38 +249,30 @@ const PostPage = () => {
             </div>
           </div>
         </div>
-        <div className="space-y-3">
-          <div className="h-4 w-full bg-muted rounded" />
-          <div className="h-4 w-full bg-muted rounded" />
-          <div className="h-4 w-2/3 bg-muted rounded" />
-        </div>
       </div>
     );
   }
 
   if (!post) {
     return (
-      <>
-        <div className="flex items-center justify-center min-h-[50vh]">
-          <div className="text-center space-y-3">
-            <h2 className="text-xl font-semibold">This post is no longer available</h2>
-            <p className="text-muted-foreground">It might have been deleted or removed.</p>
-            <Link to="/">
-              <Button variant="outline" className="gap-2 mt-4">
-                <ArrowLeft className="h-4 w-4" />
-                Return Home
-              </Button>
-            </Link>
-          </div>
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="text-center space-y-3">
+          <h2 className="text-xl font-semibold">This post is no longer available</h2>
+          <p className="text-muted-foreground">It might have been deleted or removed.</p>
+          <Link to="/">
+            <Button variant="outline" className="gap-2 mt-4">
+              <ArrowLeft className="h-4 w-4" />
+              Return Home
+            </Button>
+          </Link>
         </div>
-      </>
+      </div>
     );
   }
 
   return (
     <>
       <div className="max-w-3xl mx-auto space-y-6">
-        {/* Back button */}
         <Link to="/">
           <Button variant="ghost" size="sm" className="gap-1.5">
             <ArrowLeft className="h-4 w-4" />
@@ -268,13 +280,11 @@ const PostPage = () => {
           </Button>
         </Link>
 
-        {/* Post Header */}
         <motion.article
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="rounded-xl border border-border bg-card p-6 lg:p-8 relative group"
         >
-          {/* ⋯ Menu */}
           {canDelete && (
             <div className="absolute top-6 right-6 z-10">
               <DropdownMenu>
@@ -284,7 +294,6 @@ const PostPage = () => {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-40">
-                  {/* Edit Post coming soon */}
                   <DropdownMenuItem
                     className="text-destructive focus:text-destructive cursor-pointer"
                     onClick={() => setShowDeleteDialog(true)}
@@ -296,7 +305,7 @@ const PostPage = () => {
               </DropdownMenu>
             </div>
           )}
-          {/* Author */}
+
           <div className="flex items-center gap-4">
             <Link to={`/profile/${post.author.username}`}>
               <img
@@ -343,12 +352,10 @@ const PostPage = () => {
             </div>
           </div>
 
-          {/* Title */}
           <h1 className="mt-6 text-4xl font-bold font-iceland text-foreground tracking-wide">
             {post.title}
           </h1>
 
-          {/* Hashtags */}
           <div className="mt-4 flex flex-wrap gap-2">
             {post.hashtags?.map((tag: string) => (
               <Link key={tag} to={`/?hashtag=${encodeURIComponent(tag)}`} className="tag hover:text-primary">
@@ -357,12 +364,10 @@ const PostPage = () => {
             ))}
           </div>
 
-          {/* Content */}
           <div className="mt-8">
             <MarkdownRenderer content={post.content} />
           </div>
 
-          {/* Actions */}
           <div className="mt-8 flex items-center justify-between border-t border-border pt-6">
             <div className="flex items-center gap-4">
               <TooltipProvider>
@@ -386,15 +391,18 @@ const PostPage = () => {
                   {!user && <TooltipContent>Sign in to react</TooltipContent>}
                 </Tooltip>
               </TooltipProvider>
+
               <Button variant="ghost" size="sm" className="gap-1.5">
                 <MessageCircle className="h-4 w-4" />
                 {comments.length}
               </Button>
+
               <span className="flex items-center gap-1 text-sm text-muted-foreground">
                 <Eye className="h-4 w-4" />
                 {(post.views / 1000).toFixed(1)}k views
               </span>
             </div>
+
             <div className="flex gap-2">
               <TooltipProvider>
                 <Tooltip>
@@ -402,14 +410,20 @@ const PostPage = () => {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className={user ? "" : "opacity-60 cursor-not-allowed"}
+                      onClick={handleBookmarkToggle}
+                      disabled={!user}
+                      className={cn(
+                        !user && "opacity-60 cursor-not-allowed",
+                        isBookmarked && "text-primary"
+                      )}
                     >
-                      <Bookmark className="h-4 w-4" />
+                      <Bookmark className={cn("h-4 w-4", isBookmarked && "fill-current")} />
                     </Button>
                   </TooltipTrigger>
                   {!user && <TooltipContent>Sign in to save</TooltipContent>}
                 </Tooltip>
               </TooltipProvider>
+
               <ShareMenu
                 title={post.title}
                 path={`/post/${post.id}`}
@@ -423,7 +437,6 @@ const PostPage = () => {
           </div>
         </motion.article>
 
-        {/* Comments Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
