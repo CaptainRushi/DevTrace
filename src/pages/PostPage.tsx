@@ -179,6 +179,9 @@ const PostPage = () => {
 
     try {
       await toggleLike(supabase, post.id, wasLiked);
+      // Invalidate queries to ensure global state is consistent
+      queryClient.invalidateQueries({ queryKey: ['posts'] });
+      queryClient.invalidateQueries({ queryKey: ['user-posts'] });
     } catch (error) {
       console.error(error);
       toast.error("Failed to update like");

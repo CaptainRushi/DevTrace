@@ -177,6 +177,9 @@ export const PostCard = memo(({ post, index = 0, variant = 'default' }: PostCard
 
     try {
       await toggleLike(supabase, post.id, wasLiked);
+      // Invalidate queries to ensure global state is consistent
+      queryClient.invalidateQueries({ queryKey: ['posts'] });
+      queryClient.invalidateQueries({ queryKey: ['user-posts'] });
     } catch (error) {
       console.error(error);
       toast.error("Could not update like. Please try again.");
@@ -205,6 +208,10 @@ export const PostCard = memo(({ post, index = 0, variant = 'default' }: PostCard
     try {
       await toggleBookmark(supabase, post.id, wasBookmarked);
       toast.success(newBookmarked ? "Post saved!" : "Removed from bookmarks");
+      // Invalidate queries to ensure global state is consistent
+      queryClient.invalidateQueries({ queryKey: ['posts'] });
+      queryClient.invalidateQueries({ queryKey: ['user-posts'] });
+      queryClient.invalidateQueries({ queryKey: ['saved-posts'] });
     } catch (error) {
       toast.error("Failed to update bookmark");
       setBookmarked(wasBookmarked);
