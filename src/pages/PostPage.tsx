@@ -373,6 +373,25 @@ const PostPage = () => {
             </div>
 
             <div className="flex gap-2">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleBookmarkToggle}
+                      disabled={!user}
+                      className={cn(
+                        !user && "opacity-60 cursor-not-allowed",
+                        isBookmarked && "text-primary"
+                      )}
+                    >
+                      <Bookmark className={cn("h-4 w-4", isBookmarked && "fill-current")} />
+                    </Button>
+                  </TooltipTrigger>
+                  {!user && <TooltipContent>Sign in to save</TooltipContent>}
+                </Tooltip>
+              </TooltipProvider>
               <ShareMenu
                 title={post.title}
                 path={`/post/${post.id}`}
