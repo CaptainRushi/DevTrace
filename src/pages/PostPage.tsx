@@ -370,33 +370,6 @@ const PostPage = () => {
 
           <div className="mt-8 flex items-center justify-between border-t border-border pt-6">
             <div className="flex items-center gap-4">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleLikeToggle}
-                      disabled={likeLoading || !user}
-                      className={cn(
-                        "gap-1.5 transition-all duration-200",
-                        isLiked ? "text-red-500 hover:text-red-600" : "text-muted-foreground hover:text-red-500",
-                        !user && "opacity-60 cursor-not-allowed"
-                      )}
-                    >
-                      <Heart className={cn("h-4 w-4", isLiked && "fill-current")} />
-                      {likesCount}
-                    </Button>
-                  </TooltipTrigger>
-                  {!user && <TooltipContent>Sign in to react</TooltipContent>}
-                </Tooltip>
-              </TooltipProvider>
-
-              <Button variant="ghost" size="sm" className="gap-1.5">
-                <MessageCircle className="h-4 w-4" />
-                {comments.length}
-              </Button>
-
               <span className="flex items-center gap-1 text-sm text-muted-foreground">
                 <Eye className="h-4 w-4" />
                 {(post.views / 1000).toFixed(1)}k views
@@ -404,26 +377,6 @@ const PostPage = () => {
             </div>
 
             <div className="flex gap-2">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={handleBookmarkToggle}
-                      disabled={!user}
-                      className={cn(
-                        !user && "opacity-60 cursor-not-allowed",
-                        isBookmarked && "text-primary"
-                      )}
-                    >
-                      <Bookmark className={cn("h-4 w-4", isBookmarked && "fill-current")} />
-                    </Button>
-                  </TooltipTrigger>
-                  {!user && <TooltipContent>Sign in to save</TooltipContent>}
-                </Tooltip>
-              </TooltipProvider>
-
               <ShareMenu
                 title={post.title}
                 path={`/post/${post.id}`}
