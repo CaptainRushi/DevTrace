@@ -26,18 +26,22 @@ export const DailyHighlightWidget = () => {
             const data = await getDailyHighlights(supabase);
             const foundToday = data.filter(h => h.posted_date === today);
 
-            setTodaysHighlights(foundToday.map(h => ({
-                ...h,
-                authorName: h.author.displayName,
-                authorAvatar: h.author.avatar,
-                authorId: h.author.id
-            })));
-
-            // Check if the current user has already posted today
             if (user) {
                 const userHighlight = foundToday.find(h => h.author.id === user.id);
-                setUserHasPostedToday(!!userHighlight);
+                if (userHighlight) {
+                    setTodaysHighlights([{
+                        ...userHighlight,
+                        authorName: userHighlight.author.displayName,
+                        authorAvatar: userHighlight.author.avatar,
+                        authorId: userHighlight.author.id
+                    }]);
+                    setUserHasPostedToday(true);
+                } else {
+                    setTodaysHighlights([]);
+                    setUserHasPostedToday(false);
+                }
             } else {
+                setTodaysHighlights([]);
                 setUserHasPostedToday(false);
             }
         } catch (e) {
@@ -132,7 +136,7 @@ export const DailyHighlightWidget = () => {
                         <div className="mt-3 space-y-4">
                             {todaysHighlights.map((highlight, idx) => (
                                 <div key={highlight.id || idx} className="border-l-2 border-primary/30 pl-4">
-                                    <p className="text-xl md:text-2xl font-medium leading-relaxed text-foreground">
+                                    <p className="text-xl md:text-2xl font-medium font-iceland tracking-wide leading-relaxed text-foreground">
                                         "{highlight.content}"
                                     </p>
                                     <div className="mt-2 flex items-center gap-2">
