@@ -13,7 +13,7 @@ import { updateProfile } from "@/services/api";
 
 interface EditProfileDialogProps {
     currentProfile: any;
-    onProfileUpdate: () => void;
+    onProfileUpdate: (newUsername?: string) => void;
     children?: React.ReactNode;
 }
 
@@ -136,7 +136,7 @@ export function EditProfileDialog({ currentProfile, onProfileUpdate, children }:
             await refreshProfile();
 
             toast.success("Profile updated successfully!");
-            onProfileUpdate();
+            onProfileUpdate(username);
             setOpen(false);
 
         } catch (error: any) {

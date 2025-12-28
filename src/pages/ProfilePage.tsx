@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
 import { ProfileCard } from '@/components/profile/ProfileCard';
@@ -37,6 +37,7 @@ const transformUser = (dbUser: any, authUser: any) => ({
 const ProfilePage = () => {
   const { username } = useParams<{ username: string }>();
   const { user: currentUser } = useAuth();
+  const navigate = useNavigate();
 
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -180,6 +181,14 @@ const ProfilePage = () => {
     }
   };
 
+  const handleProfileUpdate = (newUsername?: string) => {
+    if (newUsername && newUsername !== username) {
+      navigate(`/u/${newUsername}`);
+    } else {
+      fetchProfile();
+    }
+  };
+
   if (loading) {
     return (
       <div className="max-w-6xl mx-auto space-y-8 animate-pulse">
@@ -226,7 +235,7 @@ const ProfilePage = () => {
                 username: currentUser.email?.split('@')[0] || 'User',
                 avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.id}`
               }}
-              onProfileUpdate={fetchProfile}
+              onProfileUpdate={handleProfileUpdate}
             >
               <Button>Create Profile</Button>
             </EditProfileDialog>
@@ -321,7 +330,7 @@ const ProfilePage = () => {
                         </Button>
                         <EditProfileDialog
                           currentProfile={{ ...profile, avatar_url: profile.avatar }}
-                          onProfileUpdate={fetchProfile}
+                          onProfileUpdate={handleProfileUpdate}
                         >
                           <Button variant="outline" size="sm">Edit Profile</Button>
                         </EditProfileDialog>

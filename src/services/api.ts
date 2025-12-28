@@ -609,8 +609,7 @@ export async function updateProfile(supabase: SupabaseClient, updates: { usernam
 
     const { error } = await supabase
         .from('users')
-        .update({ ...updates, updated_at: new Date().toISOString() })
-        .eq('id', user.id);
+        .upsert({ id: user.id, ...updates, updated_at: new Date().toISOString() })
 
     if (error) throw error;
 
