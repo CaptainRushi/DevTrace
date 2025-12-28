@@ -88,7 +88,7 @@ export function CodeInsertionDialog({ open, onOpenChange, onInsert }: CodeInsert
                     {/* Language Selector */}
                     <div className="flex flex-col gap-2">
                         <Label>Language</Label>
-                        <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
+                        <Popover open={openCombobox} onOpenChange={setOpenCombobox} modal={true}>
                             <PopoverTrigger asChild>
                                 <Button
                                     variant="outline"
@@ -109,10 +109,10 @@ export function CodeInsertionDialog({ open, onOpenChange, onInsert }: CodeInsert
                                             {languages.map((l) => (
                                                 <CommandItem
                                                     key={l.value}
-                                                    value={l.label} // Use label for better searching interaction? No, value usually is what you search.
-                                                    // CMDK issue: Use the value prop for unique ID/Search
-                                                    onSelect={() => {
-                                                        setLanguage(l.value);
+                                                    value={l.value}
+                                                    keywords={[l.label]}
+                                                    onSelect={(currentValue) => {
+                                                        setLanguage(currentValue);
                                                         setOpenCombobox(false);
                                                     }}
                                                 >
