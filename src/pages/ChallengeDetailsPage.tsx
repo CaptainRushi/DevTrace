@@ -89,7 +89,7 @@ const ChallengeDetailsPage = () => {
                         >
                             <div className="flex items-start justify-between">
                                 <div>
-                                    <h1 className="text-3xl font-bold text-foreground">{challenge.title}</h1>
+                                    <h1 className="text-4xl font-bold font-iceland tracking-wide text-foreground">{challenge.title}</h1>
                                     <div className="flex items-center gap-2 mt-2">
                                         <Badge variant={challenge.difficulty === 'easy' ? 'default' : challenge.difficulty === 'medium' ? 'secondary' : 'destructive'}>
                                             {challenge.difficulty?.toUpperCase()}
