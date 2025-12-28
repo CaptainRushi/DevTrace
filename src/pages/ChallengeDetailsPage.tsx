@@ -1,7 +1,8 @@
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, CheckCircle, Code, Terminal, AlertCircle, MessageCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Code, Terminal, AlertCircle, MessageCircle, Share2 } from 'lucide-react';
+import { ShareMenu } from '@/components/common/ShareMenu';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -106,6 +107,15 @@ const ChallengeDetailsPage = () => {
                                     <Button variant="ghost" size="sm" className="gap-2" onClick={() => toast.info("Discussion feature coming soon!")}>
                                         <MessageCircle className="h-4 w-4" /> Discuss
                                     </Button>
+                                    <ShareMenu
+                                        title={challenge.title}
+                                        path={`/challenges/${challenge.id}`}
+                                        trigger={
+                                            <Button variant="ghost" size="sm" className="gap-2">
+                                                <Share2 className="h-4 w-4" /> Share
+                                            </Button>
+                                        }
+                                    />
                                 </div>
                             </div>
 

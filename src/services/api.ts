@@ -17,8 +17,15 @@ export type Community = {
     id: string;
     slug: string;
     name: string;
-    description: string | null;
+    description: string;
     category: string | null;
+    member_count?: number;
+    memberCount: number;
+    is_featured: boolean;
+    icon: string;
+    isJoined?: boolean;
+    postCount?: number;
+    tags?: string[];
 };
 
 export type Post = {
@@ -37,20 +44,28 @@ export type Post = {
     cover_image_url?: string;
 };
 
+const MAX_GUEST_POSTS = 5;
+
 // Helper to fetch posts with relations
 export async function getPosts(supabase: SupabaseClient) {
     const { data: { user } } = await supabase.auth.getUser();
 
-    const { data, error } = await supabase
+    let query = supabase
         .from('posts')
         .select(`
       *,
       author:users!posts_user_id_fkey(*),
       community:communities!posts_community_id_fkey(*),
-      user_vote:votes(value),
+      user_liked_post:post_likes(user_id),
       user_bookmark:post_bookmarks(user_id)
     `)
         .order('created_at', { ascending: false });
+
+    if (!user) {
+        query = query.limit(MAX_GUEST_POSTS);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
         console.error('Error fetching posts:', error);
@@ -58,14 +73,15 @@ export async function getPosts(supabase: SupabaseClient) {
     }
 
     // Transform data to match UI needs
-    // Transform data to match UI needs
     return data.map((post: any) => transformPost(post, user));
 }
 
 // Reusable transform function to keep consistent
-export function transformPost(post: any, user: any) {
-    const isLiked = user ? post.user_vote?.some((v: any) => v.value === 1) : false;
+export function transformPost(post: any, user: any, authorOverride?: any) {
+    const isLiked = user ? post.user_liked_post?.some((l: any) => l.user_id === user.id) : false;
     const isBookmarked = user ? post.user_bookmark?.some((b: any) => b.user_id === user.id) : false;
+
+    const author = authorOverride || post.author;
 
     return {
         id: post.id,
@@ -75,10 +91,10 @@ export function transformPost(post: any, user: any) {
         type: post.type,
         created_at: post.created_at,
         author: {
-            id: post.author?.id,
-            username: post.author?.username || 'Unknown',
-            displayName: post.author?.username || 'Unknown',
-            avatar: post.author?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${post.author?.username || 'unknown'}`,
+            id: author?.id,
+            username: author?.username || 'Unknown',
+            displayName: author?.username || 'Unknown',
+            avatar: author?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${author?.username || 'unknown'}`,
         },
         community: {
             id: post.community?.id,
@@ -99,27 +115,29 @@ export function transformPost(post: any, user: any) {
     };
 }
 
-export async function getUserPosts(supabase: SupabaseClient, userId: string) {
+export async function getUserPosts(supabase: SupabaseClient, userId: string, authorData?: any) {
     const { data: { user } } = await supabase.auth.getUser();
 
-    const { data, error } = await supabase
+    let query = supabase
         .from('posts')
         .select(`
             *,
-            author:users!posts_user_id_fkey(*),
             community:communities!posts_community_id_fkey(*),
-            user_vote:votes(value),
+            user_liked_post:post_likes(user_id),
             user_bookmark:post_bookmarks(user_id)
         `)
         .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+    const { data, error } = await query;
 
     if (error) {
         console.error('Error fetching user posts:', error);
         return [];
     }
 
-    return data.map(post => transformPost(post, user));
+    return data.map(post => transformPost(post, user, authorData));
 }
 
 export async function getBookmarkedPosts(supabase: SupabaseClient) {
@@ -133,7 +151,7 @@ export async function getBookmarkedPosts(supabase: SupabaseClient) {
                 *,
                 author:users!posts_user_id_fkey(*),
                 community:communities!posts_community_id_fkey(*),
-                user_vote:votes(value),
+                user_liked_post:post_likes(user_id),
                 user_bookmark:post_bookmarks(user_id)
             )
         `)
@@ -153,17 +171,23 @@ export async function getBookmarkedPosts(supabase: SupabaseClient) {
 export async function getCommunityPosts(supabase: SupabaseClient, communityId: string) {
     const { data: { user } } = await supabase.auth.getUser();
 
-    const { data, error } = await supabase
+    let query = supabase
         .from('posts')
         .select(`
             *,
             author:users!posts_user_id_fkey(*),
             community:communities!posts_community_id_fkey(*),
-            user_vote:votes(value),
+            user_liked_post:post_likes(user_id),
             user_bookmark:post_bookmarks(user_id)
         `)
         .eq('community_id', communityId)
         .order('created_at', { ascending: false });
+
+    if (!user) {
+        query = query.limit(MAX_GUEST_POSTS);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
         console.error('Error fetching community posts:', error);
@@ -178,11 +202,18 @@ export async function toggleLike(supabase: SupabaseClient, postId: string, curre
     if (!user) throw new Error("Must be logged in");
 
     if (currentLikeStatus) {
-        // Unlike: Remove vote
-        return await supabase.from('votes').delete().match({ post_id: postId, user_id: user.id });
+        // Unlike: Remove from post_likes
+        const { error } = await supabase
+            .from('post_likes')
+            .delete()
+            .match({ post_id: postId, user_id: user.id });
+        if (error) throw error;
     } else {
-        // Like: Add vote
-        return await supabase.from('votes').upsert({ post_id: postId, user_id: user.id, value: 1 });
+        // Like: Add to post_likes
+        const { error } = await supabase
+            .from('post_likes')
+            .insert({ post_id: postId, user_id: user.id });
+        if (error) throw error;
     }
 }
 
@@ -199,6 +230,21 @@ export async function toggleBookmark(supabase: SupabaseClient, postId: string, c
     }
 }
 
+export async function deletePost(supabase: SupabaseClient, postId: string) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Must be logged in");
+
+    // First check if user is owner or admin (backend RLS should also handle this)
+    // For now we just attempt the delete, RLS should block if unauthorized
+    const { error } = await supabase
+        .from('posts')
+        .delete()
+        .eq('id', postId);
+
+    if (error) throw error;
+    return true;
+}
+
 export type OpenSourceProject = {
     id: string;
     project_name: string;
@@ -211,6 +257,8 @@ export type OpenSourceProject = {
     created_at: string;
     created_by: string; // userId
     author?: Profile;
+    star_count?: number;
+    isStarred?: boolean;
 };
 
 export async function getOpenSourceProjects(supabase: SupabaseClient) {
@@ -220,7 +268,8 @@ export async function getOpenSourceProjects(supabase: SupabaseClient) {
         .from('open_source_projects')
         .select(`
       *,
-      author:users!open_source_projects_created_by_fkey(username, avatar_url)
+      author:users!open_source_projects_created_by_fkey(username, avatar_url),
+      user_star:open_source_stars(user_id)
     `)
         .order('created_at', { ascending: false });
 
@@ -229,15 +278,37 @@ export async function getOpenSourceProjects(supabase: SupabaseClient) {
         return [];
     }
 
-    // Map to match type if necessary, usually standard
     return data.map((project: any) => ({
         ...project,
+        isStarred: user ? project.user_star?.some((s: any) => s.user_id === user.id) : false,
+        star_count: project.star_count || 0,
         author: {
             username: project.author?.username || 'Unknown',
             displayName: project.author?.username || 'Unknown',
             avatar: project.author?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${project.author?.username || 'unknown'}`,
         }
     }));
+}
+
+export async function toggleProjectStar(supabase: SupabaseClient, projectId: string, currentStarred: boolean) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Must be logged in to star projects");
+
+    if (currentStarred) {
+        // Unstar
+        const { error } = await supabase
+            .from('open_source_stars')
+            .delete()
+            .match({ project_id: projectId, user_id: user.id });
+        if (error) throw error;
+    } else {
+        // Star
+        const { error } = await supabase
+            .from('open_source_stars')
+            .insert({ project_id: projectId, user_id: user.id });
+        if (error) throw error;
+    }
+    return true;
 }
 
 export async function createOpenSourceProject(supabase: SupabaseClient, project: Omit<OpenSourceProject, 'id' | 'created_at' | 'author' | 'created_by'>) {
@@ -369,17 +440,24 @@ export async function getNotifications(supabase: SupabaseClient) {
 }
 
 export async function markNotificationAsRead(supabase: SupabaseClient, notificationId: string) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Must be logged in");
+
     const { error } = await supabase
         .from('notifications')
         .update({ is_read: true })
-        .eq('id', notificationId);
+        .eq('id', notificationId)
+        .eq('user_id', user.id); // Ensure user owns this notification
 
-    if (error) console.error("Error marking notification read:", error);
+    if (error) {
+        console.error("Error marking notification read:", error);
+        throw error;
+    }
 }
 
 export async function markAllNotificationsAsRead(supabase: SupabaseClient) {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) throw new Error("Must be logged in");
 
     const { error } = await supabase
         .from('notifications')
@@ -387,7 +465,10 @@ export async function markAllNotificationsAsRead(supabase: SupabaseClient) {
         .eq('user_id', user.id)
         .eq('is_read', false); // Only update unread ones
 
-    if (error) console.error("Error marking all read:", error);
+    if (error) {
+        console.error("Error marking all read:", error);
+        throw error;
+    }
 }
 
 // Search Function
@@ -438,76 +519,106 @@ export async function globalSearch(supabase: SupabaseClient, query: string) {
     };
 }
 
+export type UserNotificationSettings = {
+    likes_enabled: boolean;
+    comments_enabled: boolean;
+    replies_enabled: boolean;
+    contributions_enabled: boolean;
+    system_enabled: boolean;
+};
+
+export type UserPrivacySettings = {
+    profile_visibility: 'public' | 'limited';
+    show_email: boolean;
+    allow_indexing: boolean;
+    allow_follow: boolean;
+};
+
 export type UserSettings = {
     user_id: string;
-    notification_preferences: {
-        likes: boolean;
-        comments: boolean;
-        replies: boolean;
-        contributions: boolean;
-        system: boolean;
-    };
-    privacy_preferences: {
-        profile_visibility: 'public' | 'limited';
-        show_email: boolean;
-        allow_messages: boolean;
-        show_activity: boolean;
-    };
-    appearance_preferences: {
-        theme: 'light' | 'dark' | 'system';
-        sidebar_collapsed: boolean;
-        reduced_motion: boolean;
-    };
+    notifications: UserNotificationSettings;
+    privacy: UserPrivacySettings;
     updated_at: string;
 };
 
-// Default settings if row is missing
-const defaultSettings: UserSettings = {
-    user_id: '',
-    notification_preferences: { likes: true, comments: true, replies: true, contributions: true, system: true },
-    privacy_preferences: { profile_visibility: 'public', show_email: false, allow_messages: true, show_activity: true },
-    appearance_preferences: { theme: 'system', sidebar_collapsed: false, reduced_motion: false },
-    updated_at: new Date().toISOString()
+// Default settings if rows are missing
+const defaultNotifications: UserNotificationSettings = {
+    likes_enabled: true,
+    comments_enabled: true,
+    replies_enabled: true,
+    contributions_enabled: true,
+    system_enabled: true,
 };
 
-export async function getUserSettings(supabase: SupabaseClient) {
+const defaultPrivacy: UserPrivacySettings = {
+    profile_visibility: 'public',
+    show_email: false,
+    allow_indexing: true,
+    allow_follow: true,
+};
+
+export async function getUserSettings(supabase: SupabaseClient): Promise<UserSettings | null> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return null;
 
-    const { data, error } = await supabase
-        .from('user_settings')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
+    // Fetch from both tables
+    const [notifResult, privacyResult] = await Promise.all([
+        supabase.from('user_notification_settings').select('*').eq('user_id', user.id).maybeSingle(),
+        supabase.from('user_privacy_settings').select('*').eq('user_id', user.id).maybeSingle(),
+    ]);
 
-    if (error && error.code !== 'PGRST116') { // Ignore not found error
-        console.error("Error fetching settings:", error);
-    }
-
-    // Merge with defaults
     return {
-        ...defaultSettings,
-        ...(data || {}),
-        user_id: user.id
-    } as UserSettings;
+        user_id: user.id,
+        notifications: { ...defaultNotifications, ...notifResult.data },
+        privacy: { ...defaultPrivacy, ...privacyResult.data },
+        updated_at: new Date().toISOString()
+    };
 }
 
-export async function updateUserSettings(supabase: SupabaseClient, settings: Partial<UserSettings>) {
+export async function updateNotificationSettings(supabase: SupabaseClient, settings: Partial<UserNotificationSettings>) {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Must be logged in");
-
-    // Remove immutable fields
-    const { user_id, updated_at, ...updates } = settings as any;
+    if (!user) throw new Error("Not authenticated");
 
     const { error } = await supabase
-        .from('user_settings')
-        .upsert({
-            user_id: user.id,
-            ...updates,
-            updated_at: new Date().toISOString()
-        });
+        .from('user_notification_settings')
+        .upsert({ user_id: user.id, ...settings, updated_at: new Date().toISOString() });
 
     if (error) throw error;
+}
+
+export async function updatePrivacySettings(supabase: SupabaseClient, settings: Partial<UserPrivacySettings>) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Not authenticated");
+
+    const { error } = await supabase
+        .from('user_privacy_settings')
+        .upsert({ user_id: user.id, ...settings, updated_at: new Date().toISOString() });
+
+    if (error) throw error;
+}
+
+export async function deleteUserAccount(supabase: SupabaseClient) {
+    const { error } = await supabase.rpc('delete_user_account');
+    if (error) throw error;
+}
+
+export async function updateProfile(supabase: SupabaseClient, updates: { username?: string; bio?: string; avatar_url?: string; banner_path?: string; skills?: string[] }) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Not authenticated");
+
+    const { error } = await supabase
+        .from('users')
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq('id', user.id);
+
+    if (error) throw error;
+
+    // Optional: Update auth metadata if username changed
+    if (updates.username) {
+        await supabase.auth.updateUser({
+            data: { username: updates.username }
+        });
+    }
 }
 
 // --- Profile & Social Features ---
@@ -565,10 +676,11 @@ export async function checkIsFollowing(supabase: SupabaseClient, targetUserId: s
 export async function getUserStats(supabase: SupabaseClient, userId: string) {
     if (!userId) return null;
 
-    // Single row fetch from users table - sub-5ms performance
+    // ULTIMATE PERFORMANCE: Single row fetch from users table (0ms runtime)
+    // Uses pre-computed counters maintained by database triggers
     const { data, error } = await supabase
         .from('users')
-        .select('posts_count, likes_received, comments_received, bookmarks_received')
+        .select('posts_count, likes_received, comments_received, bookmarks_received, followers_count, following_count, challenges_count, communities_count')
         .eq('id', userId)
         .single();
 
@@ -583,26 +695,13 @@ export async function getUserStats(supabase: SupabaseClient, userId: string) {
         };
     }
 
-    // Dynamic stats that might not be pre-computed yet or are private/sensitive
-    const followersPromise = supabase.from('followers').select('*', { count: 'exact', head: true }).eq('following_id', userId);
-    const followingPromise = supabase.from('followers').select('*', { count: 'exact', head: true }).eq('follower_id', userId);
-    const challengesPromise = supabase.from('challenges').select('*', { count: 'exact', head: true }).eq('created_by', userId);
-    const communitiesPromise = supabase.from('community_members').select('*', { count: 'exact', head: true }).eq('user_id', userId);
-
-    const [followers, following, challenges, communities] = await Promise.all([
-        followersPromise,
-        followingPromise,
-        challengesPromise,
-        communitiesPromise
-    ]);
-
     return {
         posts: data.posts_count || 0,
-        followers: followers.count || 0,
-        following: following.count || 0,
+        followers: data.followers_count || 0,
+        following: data.following_count || 0,
         saved: data.bookmarks_received || 0,
-        challenges: challenges.count || 0,
-        communities: communities.count || 0
+        challenges: data.challenges_count || 0,
+        communities: data.communities_count || 0
     };
 }
 
@@ -630,15 +729,14 @@ export async function getUserAnalytics(supabase: SupabaseClient, userId: string)
     };
 }
 
-export async function getTopPerformerPost(supabase: SupabaseClient, userId: string) {
+export async function getTopPerformerPost(supabase: SupabaseClient, userId: string, authorData?: any) {
     const { data: { user } } = await supabase.auth.getUser();
     const { data, error } = await supabase
         .from('posts')
         .select(`
             *,
-            author:users!posts_user_id_fkey(*),
             community:communities!posts_community_id_fkey(*),
-            user_vote:votes(value),
+            user_liked_post:post_likes(user_id),
             user_bookmark:post_bookmarks(user_id)
         `)
         .eq('user_id', userId)
@@ -647,5 +745,139 @@ export async function getTopPerformerPost(supabase: SupabaseClient, userId: stri
         .single();
 
     if (error || !data) return null;
-    return transformPost(data, user);
+    return transformPost(data, user, authorData);
+}
+
+// --- Daily Highlights ---
+
+export async function getDailyHighlights(supabase: SupabaseClient) {
+    // Calling the RPC function which handles cleanup (retention) and fetching Today + Yesterday
+    const { data, error } = await supabase.rpc('get_current_highlights');
+
+    if (error) {
+        console.error('Error fetching highlights:', error);
+        return [];
+    }
+
+    return (data || []).map((h: any) => ({
+        id: h.id,
+        content: h.content,
+        posted_date: h.posted_date,
+        createdAt: h.created_at,
+        author: {
+            id: h.user?.id,
+            displayName: h.user?.username || 'Unknown',
+            username: h.user?.username || 'unknown',
+            avatar: h.user?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${h.user?.username || 'unknown'}`,
+        },
+        reactions: []
+    }));
+}
+
+export async function createDailyHighlight(supabase: SupabaseClient, content: string) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Must be logged in");
+
+    const { data, error } = await supabase
+        .from('daily_highlights')
+        .insert({
+            content,
+            posted_by: user.id,
+            posted_date: new Date().toISOString().split('T')[0] // Always Today's Date
+        })
+        .select()
+        .single();
+
+    if (error) throw error;
+    return data;
+}
+
+// --- Communities Filter Logic ---
+
+export type CommunityFilters = {
+    category?: string;
+    sortBy?: 'popular' | 'newest';
+    joinedOnly?: boolean;
+    search?: string;
+};
+
+export async function getCommunities(supabase: SupabaseClient, filters: CommunityFilters, currentUserId?: string) {
+    let query = supabase
+        .from('communities')
+        .select(`
+            *,
+            members:community_members(user_id)
+        `);
+
+    // 1. Search filter with robust ILIKE syntax
+    if (filters.search) {
+        const searchStr = `%${filters.search}%`;
+        query = query.or(`name.ilike.${searchStr},description.ilike.${searchStr}`);
+    }
+
+    // 2. Category filter - case insensitive
+    if (filters.category && filters.category !== 'all') {
+        query = query.ilike('category', filters.category);
+    }
+
+    // 3. Sorting - defensive check for member_count
+    if (filters.sortBy === 'popular') {
+        query = query.order('member_count', { ascending: false, nullsFirst: false });
+    } else {
+        query = query.order('created_at', { ascending: false });
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+        console.error('Error fetching communities:', error);
+        // Fallback for sorting if column missing, just try again without sort
+        if (error.message?.includes('member_count')) {
+            const fallback = await supabase.from('communities').select('*, members:community_members(user_id)');
+            return fallback.data?.map((c: any) => ({
+                ...c,
+                isJoined: currentUserId ? c.members?.some((m: any) => m.user_id === currentUserId) : false,
+                memberCount: 0,
+                tags: c.category ? [c.category] : [],
+                icon: c.icon || '🌍',
+                description: c.description || '',
+            })) || [];
+        }
+        return [];
+    }
+
+    let results = data.map((c: any) => ({
+        ...c,
+        isJoined: currentUserId ? c.members?.some((m: any) => m.user_id === currentUserId) : false,
+        memberCount: c.member_count || 0,
+        postCount: c.posts_count || 0,
+        tags: c.category ? [c.category] : [],
+        icon: c.icon || '🌍',
+        description: c.description || '',
+    }));
+
+    // 4. Joined only
+    if (filters.joinedOnly && currentUserId) {
+        results = results.filter(c => c.isJoined);
+    }
+
+    return results as Community[];
+}
+export async function getCommunityCategories(supabase: SupabaseClient) {
+    const { data, error } = await supabase
+        .from('communities')
+        .select('category')
+        .not('category', 'is', null);
+
+    if (error) {
+        console.error('Error fetching categories:', error);
+        return [];
+    }
+
+    // Get unique categories, ignore nulls and empty strings
+    const uniqueCategories = Array.from(new Set(data.map(c => c.category))).filter(Boolean);
+    return uniqueCategories.map(cat => ({
+        id: cat,
+        label: cat ? cat.charAt(0).toUpperCase() + cat.slice(1) : ''
+    }));
 }

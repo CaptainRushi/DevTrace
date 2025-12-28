@@ -17,32 +17,29 @@ export const RunningLogo: React.FC<RunningLogoProps> = ({
         <div
             onClick={() => navigate('/')}
             className={cn(
-                "relative flex items-center justify-center cursor-pointer select-none group",
+                "relative flex items-center gap-2 cursor-pointer select-none group px-2 py-1 rounded-lg transition-all duration-300 hover:bg-muted/50",
                 className
             )}
             role="banner"
             aria-label="DevTrace Home"
-            style={{ perspective: '1000px' }}
         >
-            <div className={cn(
-                "relative transition-all duration-300 transform-style-3d",
-                "motion-safe:animate-logo-3d-float"
-            )}
-                style={{ transformStyle: 'preserve-3d' }}
-            >
-                {/* Main Text Layer */}
-                <div className={cn(
-                    "font-jersey font-normal text-primary flex items-center justify-center relative",
-                    "text-4xl leading-none tracking-wide whitespace-nowrap",
-                    collapsed ? "text-4xl" : "text-4xl" // Maintained consistent size as requested
-                )}>
-                    DevTrace
+            {/* Logo Image */}
+            <div className="relative h-10 w-10 overflow-hidden rounded-xl border border-border bg-card shadow-2xl group-hover:scale-105 transition-transform duration-300">
+                <img
+                    src="/logo.png"
+                    alt="DevTrace Logo"
+                    className="h-full w-full object-cover p-1"
+                />
+                <div className="absolute inset-0 bg-gradient-to-tr from-primary/20 to-transparent pointer-events-none" />
+            </div>
 
-                    {/* Light Sweep Overlay (Simulates reflection) */}
-                    <div className="absolute inset-0 w-full h-full pointer-events-none mix-blend-overlay">
-                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent w-full h-full motion-safe:animate-light-sweep" />
-                    </div>
-                </div>
+            {/* Logo Text */}
+            <div className={cn(
+                "font-jersey font-normal text-primary flex items-center justify-center relative transition-all duration-300",
+                "text-3xl leading-none tracking-wide whitespace-nowrap",
+                collapsed ? "hidden md:flex" : "flex"
+            )}>
+                DevTrace
             </div>
         </div>
     );

@@ -2,9 +2,8 @@ import { useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { OpenSourceProject, logContribution } from '@/services/api';
-import { Github, Bug, Lightbulb, GitPullRequest, MessageSquare, ExternalLink, Loader2 } from 'lucide-react';
+import { Github, Bug, Lightbulb, GitPullRequest, MessageSquare, ExternalLink, Loader2, BookOpen, Stars, HelpCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -21,7 +20,7 @@ import { Link } from 'react-router-dom';
 
 interface ContributeModalProps {
     project: OpenSourceProject;
-    children?: React.ReactNode; // Button trigger
+    children?: React.ReactNode;
 }
 
 export function ContributeModal({ project, children }: ContributeModalProps) {
@@ -47,9 +46,8 @@ export function ContributeModal({ project, children }: ContributeModalProps) {
                 reference_url: refUrl,
                 description: desc
             });
-            toast.success("Contribution logged! Pending approval.");
+            toast.success("Contribution logged! Thank you for supporting open source.");
             setOpen(false);
-            // Reset form
             setRefUrl('');
             setDesc('');
         } catch (error) {
@@ -60,122 +58,80 @@ export function ContributeModal({ project, children }: ContributeModalProps) {
         }
     };
 
+    const contributionWays = [
+        { icon: Bug, label: 'Report a Bug', color: 'text-red-500', link: `${project.repo_url}/issues/new?labels=bug` },
+        { icon: Lightbulb, label: 'Suggest Feature', color: 'text-yellow-500', link: `${project.repo_url}/issues/new?labels=enhancement` },
+        { icon: Stars, label: 'Good First Issue', color: 'text-purple-500', link: `${project.repo_url}/issues?q=is:open+is:issue+label:"good+first+issue"` },
+        { icon: BookOpen, label: 'Documentation', color: 'text-blue-500', link: `${project.repo_url}/tree/main#documentation` },
+        { icon: GitPullRequest, label: 'Submit PR', color: 'text-green-500', link: `${project.repo_url}/pulls` },
+        { icon: MessageSquare, label: 'Discuss', color: 'text-cyan-500', link: `${project.repo_url}/discussions` },
+    ];
+
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
                 {children}
             </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle className="text-2xl flex items-center gap-2">
+                    <DialogTitle className="text-2xl font-bold flex items-center gap-3">
                         Contribute to <span className="text-primary">{project.project_name}</span>
                     </DialogTitle>
-                    <DialogDescription>
-                        Join the development! You can contribute by reporting bugs, suggesting features, or submitting code.
+                    <DialogDescription className="text-base">
+                        Your contributions help grow the developer ecosystem. Choose a way to help or log your recent activity.
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="space-y-6 mt-4">
+                <div className="space-y-8 mt-6">
                     {/* 1. Repository Access */}
-                    <div className="bg-muted/50 p-4 rounded-lg border border-border flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <Github className="h-6 w-6" />
+                    <section className="bg-muted/30 p-5 rounded-xl border border-border/50 flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div className="flex items-center gap-4">
+                            <div className="h-12 w-12 rounded-full bg-background flex items-center justify-center border border-border">
+                                <Github className="h-6 w-6" />
+                            </div>
                             <div>
-                                <h4 className="font-semibold text-sm">Main Repository</h4>
-                                <p className="text-xs text-muted-foreground">{project.repo_url}</p>
+                                <h4 className="font-bold text-sm">Repository Source</h4>
+                                <p className="text-xs text-muted-foreground truncate max-w-[200px] md:max-w-xs">{project.repo_url}</p>
                             </div>
                         </div>
-                        <Button asChild size="sm">
+                        <Button asChild className="shrink-0 w-full sm:w-auto">
                             <a href={project.repo_url} target="_blank" rel="noopener noreferrer">
                                 <ExternalLink className="mr-2 h-4 w-4" />
-                                Open Repo
+                                Open on GitHub
                             </a>
                         </Button>
-                    </div>
+                    </section>
 
-                    {/* 2. Contribution Options (Guidance) */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        <a href={`${project.repo_url}/issues/new`} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center justify-center p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors text-center gap-2 group">
-                            <Bug className="h-6 w-6 text-red-500 group-hover:scale-110 transition-transform" />
-                            <span className="text-sm font-medium">Report Bug</span>
-                        </a>
-                        <a href={`${project.repo_url}/issues`} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center justify-center p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors text-center gap-2 group">
-                            <Lightbulb className="h-6 w-6 text-yellow-500 group-hover:scale-110 transition-transform" />
-                            <span className="text-sm font-medium">Suggest Feature</span>
-                        </a>
-                        <a href={`${project.repo_url}/pulls`} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center justify-center p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors text-center gap-2 group">
-                            <GitPullRequest className="h-6 w-6 text-blue-500 group-hover:scale-110 transition-transform" />
-                            <span className="text-sm font-medium">Submit PR</span>
-                        </a>
-                        <a href={`${project.repo_url}/discussions`} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center justify-center p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors text-center gap-2 group">
-                            <MessageSquare className="h-6 w-6 text-green-500 group-hover:scale-110 transition-transform" />
-                            <span className="text-sm font-medium">Discuss</span>
-                        </a>
-                    </div>
-
-                    {/* 3. Guidelines Placeholder (If we had a field for it) */}
-                    {/* <div className="text-sm text-muted-foreground bg-blue-500/10 p-3 rounded-md border border-blue-500/20">
-             <strong>Tip:</strong> Check the <code>CONTRIBUTING.md</code> file in the repository for specific guidelines.
-           </div> */}
-
-                    {/* 4. Log Contribution (Logged-in only) */}
-                    {user ? (
-                        <div className="border-t pt-6">
-                            <h3 className="text-lg font-semibold mb-4">Log Your Contribution</h3>
-                            <p className="text-sm text-muted-foreground mb-4">
-                                Did you submit an issue or PR? Log it here to track your community impact!
-                            </p>
-
-                            <form onSubmit={handleLogContribution} className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label>Type</Label>
-                                        <Select value={contribType} onValueChange={setContribType}>
-                                            <SelectTrigger>
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="Issue">Issue</SelectItem>
-                                                <SelectItem value="PR">Pull Request</SelectItem>
-                                                <SelectItem value="Idea">Idea / Discussion</SelectItem>
-                                                <SelectItem value="Docs">Documentation</SelectItem>
-                                                <SelectItem value="Other">Other</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>Reference URL (Optional)</Label>
-                                        <Input
-                                            placeholder="e.g. GitHub Issue Link"
-                                            value={refUrl}
-                                            onChange={(e) => setRefUrl(e.target.value)}
-                                        />
-                                    </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Description <span className="text-red-500">*</span></Label>
-                                    <Textarea
-                                        placeholder="Briefly describe what you did..."
-                                        value={desc}
-                                        onChange={(e) => setDesc(e.target.value)}
-                                        required
-                                        className="resize-none"
-                                    />
-                                </div>
-                                <Button type="submit" disabled={submitting} className="w-full">
-                                    {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    Log Contribution
-                                </Button>
-                            </form>
+                    {/* 2. Contribution Ways */}
+                    <section>
+                        <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                            <HelpCircle className="h-5 w-5 text-primary" />
+                            Ways to Contribute
+                        </h3>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            {contributionWays.map((way) => (
+                                <a
+                                    key={way.label}
+                                    href={way.link}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex flex-col items-center justify-center p-4 rounded-xl border border-border hover:border-primary/50 hover:bg-muted/50 transition-all text-center gap-2 group shadow-sm bg-card"
+                                >
+                                    <way.icon className={`h-6 w-6 ${way.color} group-hover:scale-110 transition-transform`} />
+                                    <span className="text-xs font-bold whitespace-nowrap">{way.label}</span>
+                                </a>
+                            ))}
                         </div>
-                    ) : (
-                        <div className="border-t pt-6 text-center">
-                            <p className="text-muted-foreground mb-4">Log in to track your contributions and build your profile.</p>
-                            <Button asChild variant="outline">
-                                <Link to="/auth/sign-in">Sign In to Log Contribution</Link>
-                            </Button>
-                        </div>
-                    )}
+                    </section>
+
+                    {/* 3. Contribution Guidelines */}
+                    <section className="p-4 rounded-xl border border-primary/20 bg-primary/5">
+                        <h4 className="text-sm font-bold text-primary mb-2">Contribution Guidelines</h4>
+                        <p className="text-sm text-balance leading-relaxed">
+                            Check the repository README and <code>CONTRIBUTING.md</code> for specific instructions on environment setup, coding standards, and submission processes.
+                        </p>
+                    </section>
+
                 </div>
             </DialogContent>
         </Dialog>

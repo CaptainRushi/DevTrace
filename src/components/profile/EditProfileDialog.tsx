@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Upload } from "lucide-react";
 import { toast } from "sonner";
+import { updateProfile } from "@/services/api";
 
 interface EditProfileDialogProps {
     currentProfile: any;
@@ -17,7 +18,7 @@ interface EditProfileDialogProps {
 }
 
 export function EditProfileDialog({ currentProfile, onProfileUpdate, children }: EditProfileDialogProps) {
-    const { user } = useAuth();
+    const { user, refreshProfile } = useAuth();
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
 
@@ -121,23 +122,18 @@ export function EditProfileDialog({ currentProfile, onProfileUpdate, children }:
                 uploadedBannerPath = filePath;
             }
 
-            // 2. Update Profile (Upsert to handle missing rows)
+            // 2. Update Profile via Unified API
             const skillArray = skills.split(',').map((s: string) => s.trim()).filter((s: string) => s);
 
-            const { error: updateError } = await supabase
-                .from('users')
-                .upsert({
-                    id: user.id, // Explicitly provide ID for upsert
-                    username,
-                    bio,
-                    skills: skillArray,
-                    avatar_url: uploadedAvatarUrl,
-                    banner_path: uploadedBannerPath,
-                    updated_at: new Date()
-                })
-                .select(); // Good practice to confirm the operation returned data
+            await updateProfile(supabase, {
+                username,
+                bio,
+                skills: skillArray,
+                avatar_url: uploadedAvatarUrl,
+                banner_path: uploadedBannerPath
+            });
 
-            if (updateError) throw updateError;
+            await refreshProfile();
 
             toast.success("Profile updated successfully!");
             onProfileUpdate();

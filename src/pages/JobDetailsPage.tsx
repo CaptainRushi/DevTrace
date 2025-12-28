@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from "@/lib/supabase";
 import { formatDistanceToNow } from 'date-fns';
 import { MarkdownRenderer } from '@/components/common/MarkdownRenderer';
+import { ShareMenu } from '@/components/common/ShareMenu';
 
 const JobDetailsPage = () => {
     const { id } = useParams<{ id: string }>();
@@ -118,9 +119,15 @@ const JobDetailsPage = () => {
                                             </div>
                                         </div>
                                         {/* Share or Bookmark could go here */}
-                                        <Button variant="ghost" size="icon">
-                                            <Share2 className="h-4 w-4" />
-                                        </Button>
+                                        <ShareMenu
+                                            title={`${job.role} at ${job.company}`}
+                                            path={`/jobs/${job.id}`}
+                                            trigger={
+                                                <Button variant="ghost" size="icon">
+                                                    <Share2 className="h-4 w-4" />
+                                                </Button>
+                                            }
+                                        />
                                     </div>
 
                                     <div className="flex flex-wrap gap-2 pt-2">

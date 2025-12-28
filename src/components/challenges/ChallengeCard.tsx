@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
-import { Users, MessageCircle, Trophy } from 'lucide-react';
+import { Users, MessageCircle, Trophy, Share2 } from 'lucide-react';
+import { ShareMenu } from '@/components/common/ShareMenu';
 import { motion } from 'framer-motion';
 // import { Challenge } from '@/data/mockData';
 import { Button } from '@/components/ui/button';
@@ -73,19 +74,32 @@ export function ChallengeCard({ challenge, index = 0 }: ChallengeCardProps) {
       {/* Footer */}
       <div className="mt-4 flex items-center justify-between">
         <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          {challenge.submissions > 0 && (
+            <span className="flex items-center gap-1.5">
+              <Users className="h-4 w-4" />
+              {challenge.submissions} participants
+            </span>
+          )}
           <span className="flex items-center gap-1.5">
-            <Users className="h-4 w-4" />
-            {challenge.submissions} solutions
-          </span>
-          <span className="flex items-center gap-1.5">
-            by {challenge.author.displayName}
+            by {challenge.author?.displayName || 'Platform'}
           </span>
         </div>
-        <Link to={`/challenges/${challenge.id}`}>
-          <Button variant="outline" size="sm">
-            View Details
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <ShareMenu
+            title={challenge.title}
+            path={`/challenges/${challenge.id}`}
+            trigger={
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
+                <Share2 className="h-4 w-4" />
+              </Button>
+            }
+          />
+          <Link to={`/challenges/${challenge.id}`}>
+            <Button variant="outline" size="sm">
+              View Details
+            </Button>
+          </Link>
+        </div>
       </div>
     </motion.div>
   );

@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
+import { getDailyHighlights, createDailyHighlight } from '@/services/api';
 
 const HighlightsPage = () => {
   const { user } = useAuth();
@@ -20,26 +21,8 @@ const HighlightsPage = () => {
   const fetchHighlights = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('daily_highlights')
-        .select('*, user:users!daily_highlights_posted_by_fkey(*)')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      if (data) {
-        // Map/Transform
-        setHighlights(data.map(h => ({
-          id: h.id,
-          content: h.content,
-          createdAt: h.created_at,
-          author: {
-            displayName: h.user?.username || 'Unknown',
-            username: h.user?.username || 'unknown',
-            avatar: h.user?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${h.user?.username}`
-          },
-          reactions: []
-        })));
-      }
+      const data = await getDailyHighlights(supabase);
+      setHighlights(data);
     } catch (error) {
       console.error("Error fetching highlights", error);
     } finally {
@@ -56,15 +39,7 @@ const HighlightsPage = () => {
 
     setIsPosting(true);
     try {
-      const { error } = await supabase
-        .from('daily_highlights')
-        .insert({
-          posted_by: user.id,
-          content: content.trim()
-          // created_at defaults to now
-        });
-
-      if (error) throw error;
+      await createDailyHighlight(supabase, content.trim());
 
       setContent('');
       toast.success("Highlight posted!");
@@ -148,19 +123,39 @@ const HighlightsPage = () => {
 
         {/* Timeline */}
         <div className="relative">
-          <h2 className="terminal-heading text-xl font-bold mb-6">today</h2>
           {loading ? (
             <div className="flex justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : highlights.length > 0 ? (
-            <div className="space-y-0">
-              {highlights.map((highlight, index) => (
-                <HighlightCard key={highlight.id} highlight={highlight} index={index} />
-              ))}
+            <div className="space-y-12">
+              {/* Grouping Today vs Yesterday */}
+              {['today', 'yesterday'].map((day) => {
+                const dayHighlights = highlights.filter(h => {
+                  const date = new Date(h.posted_date).toISOString().split('T')[0];
+                  const today = new Date().toISOString().split('T')[0];
+                  const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+                  return day === 'today' ? date === today : date === yesterday;
+                });
+
+                if (dayHighlights.length === 0) return null;
+
+                return (
+                  <div key={day} className="space-y-6">
+                    <h2 className="terminal-heading text-xl font-bold uppercase tracking-widest text-primary/80">
+                      {day}
+                    </h2>
+                    <div className="space-y-0">
+                      {dayHighlights.map((highlight, index) => (
+                        <HighlightCard key={highlight.id} highlight={highlight} index={index} />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           ) : (
-            <div className="text-center py-12 border border-dashed rounded-lg">
+            <div className="text-center py-12 border border-dashed rounded-lg border-border bg-card/50">
               <p className="text-muted-foreground">No highlights yet. Be the first to start the streak!</p>
             </div>
           )}

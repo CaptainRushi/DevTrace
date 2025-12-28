@@ -77,16 +77,24 @@ export function NotificationsDropdown() {
 
 
     const handleMarkAllRead = async () => {
-        await markAllNotificationsAsRead(supabase);
-        setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-        setUnreadCount(0);
+        try {
+            await markAllNotificationsAsRead(supabase);
+            setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+            setUnreadCount(0);
+        } catch (error) {
+            console.error("Failed to mark all as read:", error);
+        }
     };
 
     const handleNotificationClick = async (notif: AppNotification) => {
         if (!notif.is_read) {
-            await markNotificationAsRead(supabase, notif.id);
-            setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, is_read: true } : n));
-            setUnreadCount(prev => Math.max(0, prev - 1));
+            try {
+                await markNotificationAsRead(supabase, notif.id);
+                setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, is_read: true } : n));
+                setUnreadCount(prev => Math.max(0, prev - 1));
+            } catch (error) {
+                console.error("Failed to mark notification as read:", error);
+            }
         }
     };
 

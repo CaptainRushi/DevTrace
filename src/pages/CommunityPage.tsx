@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { PostSkeleton, CommunityHeaderSkeleton } from '@/components/common/Skeletons';
+import { GuestAccessPrompt } from '@/components/common/GuestAccessPrompt';
 
 // Helper
 import { getCommunityPosts } from '@/services/api';
@@ -149,7 +150,7 @@ const CommunityPage = () => {
                 </span>
                 <span className="flex items-center gap-1.5">
                   <FileText className="h-4 w-4" />
-                  {postsLoading ? <div className="h-4 w-12 bg-muted animate-pulse rounded" /> : posts.length.toLocaleString()} posts
+                  {postsLoading ? <div className="h-4 w-12 bg-muted animate-pulse rounded" /> : (community.posts_count || 0).toLocaleString()} posts
                 </span>
               </div>
             </div>
@@ -173,10 +174,6 @@ const CommunityPage = () => {
           <div className="flex items-center justify-between mb-6">
             <SectionHeader title="posts" />
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" className="gap-2">
-                <Filter className="h-4 w-4" />
-                Filter
-              </Button>
               <Link to={`/create?community=${slug}`}>
                 <Button size="sm" className="gap-2">
                   <Plus className="h-4 w-4" />
@@ -202,6 +199,12 @@ const CommunityPage = () => {
               </div>
             )}
           </div>
+
+          {!postsLoading && posts.length > 0 && !user && (
+            <div className="mt-8">
+              <GuestAccessPrompt />
+            </div>
+          )}
         </div>
       </div>
     </>

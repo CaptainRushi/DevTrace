@@ -1,6 +1,25 @@
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Heart, MessageCircle, Bookmark, Share2, Clock, Eye, Loader2 } from 'lucide-react';
+import { ArrowLeft, Heart, MessageCircle, Bookmark, Share2, Clock, Eye, Loader2, MoreVertical, Trash2, Edit } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useQueryClient } from '@tanstack/react-query';
+import { deletePost as apiDeletePost, toggleLike } from '@/services/api';
+import { useNavigate } from 'react-router-dom';
 
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -10,6 +29,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { MarkdownRenderer } from '@/components/common/MarkdownRenderer';
+import { cn } from '@/lib/utils';
 
 // Helper to transform Supabase user to UI user shape (Duplicated)
 const transformUser = (dbUser: any, authUser: any) => ({
@@ -19,6 +39,16 @@ const transformUser = (dbUser: any, authUser: any) => ({
   avatar: dbUser.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${dbUser.username}`,
 });
 
+import { ShareMenu } from '@/components/common/ShareMenu';
+import { FollowButton } from '@/components/common/FollowButton';
+import { UserHoverCard } from '@/components/common/UserHoverCard';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger
+} from "@/components/ui/tooltip";
+
 const PostPage = () => {
   const { id } = useParams<{ id: string }>();
   const [post, setPost] = useState<any>(null);
@@ -26,7 +56,18 @@ const PostPage = () => {
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
-  const { user } = useAuth();
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isLiked, setIsLiked] = useState(false);
+  const [likesCount, setLikesCount] = useState(0);
+  const [likeLoading, setLikeLoading] = useState(false);
+  const { user, profile } = useAuth();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  const isOwner = user?.id === post?.author?.id;
+  const isAdmin = profile?.role === 'admin' || profile?.role === 'moderator';
+  const canDelete = isOwner || isAdmin;
 
   const fetchPost = async () => {
     if (!id) return;
@@ -38,7 +79,7 @@ const PostPage = () => {
                 *,
                 author:users!posts_user_id_fkey(*),
                 community:communities!posts_community_id_fkey(*),
-                votes(value),
+                user_liked_post:post_likes(user_id),
                 comments(
                     id,
                     content,
@@ -55,6 +96,7 @@ const PostPage = () => {
       // Transform
       const transformedPost = {
         id: data.id,
+        created_at: data.created_at,
         title: data.title,
         content: data.content,
         excerpt: data.content.slice(0, 150) + '...',
@@ -64,13 +106,14 @@ const PostPage = () => {
           icon: '🚀'
         },
         readTime: Math.ceil(data.content.length / 500) || 1, // Crude calc
-        created_at: data.created_at,
-        hashtags: data.hashtags || [],
-        likes: data.votes?.filter((v: any) => v.value === 1).length || 0,
+        likes: data.likes_count || 0,
+        isLiked: user ? data.user_liked_post?.some((l: any) => l.user_id === user.id) : false,
         views: 100, // Placeholder
       };
 
       setPost(transformedPost);
+      setIsLiked(transformedPost.isLiked);
+      setLikesCount(transformedPost.likes);
 
       if (data.comments) {
         setComments(data.comments.map((c: any) => ({
@@ -119,6 +162,52 @@ const PostPage = () => {
       console.error(e);
     } finally {
       setSubmittingComment(false);
+    }
+  };
+
+  const handleLikeToggle = async () => {
+    if (!user || !post || likeLoading) return;
+
+    const wasLiked = isLiked;
+    const oldLikesCount = likesCount;
+    const newLiked = !wasLiked;
+
+    // Optimistic Update
+    setIsLiked(newLiked);
+    setLikesCount(newLiked ? oldLikesCount + 1 : Math.max(0, oldLikesCount - 1));
+    setLikeLoading(true);
+
+    try {
+      await toggleLike(supabase, post.id, wasLiked);
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to update like");
+      // Rollback to exact previous state
+      setIsLiked(wasLiked);
+      setLikesCount(oldLikesCount);
+    } finally {
+      setLikeLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!id) return;
+    setIsDeleting(true);
+    try {
+      await apiDeletePost(supabase, id);
+      toast.success("Post deleted successfully");
+
+      // Invalidate queries
+      queryClient.invalidateQueries({ queryKey: ['posts'] });
+      queryClient.invalidateQueries({ queryKey: ['user-posts'] });
+
+      navigate('/'); // Redirect to home after deletion
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to delete post");
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteDialog(false);
     }
   };
 
@@ -171,8 +260,30 @@ const PostPage = () => {
         <motion.article
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-xl border border-border bg-card p-6 lg:p-8"
+          className="rounded-xl border border-border bg-card p-6 lg:p-8 relative group"
         >
+          {/* ⋯ Menu */}
+          {canDelete && (
+            <div className="absolute top-6 right-6 z-10">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full border border-border hover:bg-muted">
+                    <MoreVertical className="h-5 w-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-40">
+                  {/* Edit Post coming soon */}
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive cursor-pointer"
+                    onClick={() => setShowDeleteDialog(true)}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    <span>Delete Post</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )}
           {/* Author */}
           <div className="flex items-center gap-4">
             <Link to={`/profile/${post.author.username}`}>
@@ -182,13 +293,29 @@ const PostPage = () => {
                 className="h-12 w-12 rounded-full ring-2 ring-primary/20"
               />
             </Link>
-            <div>
-              <Link
-                to={`/profile/${post.author.username}`}
-                className="font-semibold text-foreground hover:text-primary transition-colors"
-              >
-                {post.author.displayName}
-              </Link>
+            <div className="flex-1">
+              <div className="flex items-center gap-3">
+                <UserHoverCard
+                  userId={post.author.id}
+                  username={post.author.username}
+                  displayName={post.author.displayName}
+                  avatar={post.author.avatar}
+                >
+                  <Link
+                    to={`/profile/${post.author.username}`}
+                    className="font-semibold text-foreground hover:text-primary transition-colors"
+                  >
+                    {post.author.displayName}
+                  </Link>
+                </UserHoverCard>
+                <FollowButton
+                  targetUserId={post.author.id}
+                  targetUsername={post.author.displayName}
+                  size="sm"
+                  variant="ghost"
+                  className="h-8"
+                />
+              </div>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Link to={`/community/${post.community.slug}`} className="hover:text-primary">
                   {post.community.icon} {post.community.name}
@@ -199,7 +326,7 @@ const PostPage = () => {
                   {post.readTime} min read
                 </span>
                 <span>·</span>
-                <span>{formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}</span>
+                <span>{post.created_at ? formatDistanceToNow(new Date(post.created_at), { addSuffix: true }) : 'Just now'}</span>
               </div>
             </div>
           </div>
@@ -226,10 +353,27 @@ const PostPage = () => {
           {/* Actions */}
           <div className="mt-8 flex items-center justify-between border-t border-border pt-6">
             <div className="flex items-center gap-4">
-              <Button variant="ghost" size="sm" className="gap-1.5">
-                <Heart className="h-4 w-4" />
-                {post.likes}
-              </Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleLikeToggle}
+                      disabled={likeLoading || !user}
+                      className={cn(
+                        "gap-1.5 transition-all duration-200",
+                        isLiked ? "text-red-500 hover:text-red-600" : "text-muted-foreground hover:text-red-500",
+                        !user && "opacity-60 cursor-not-allowed"
+                      )}
+                    >
+                      <Heart className={cn("h-4 w-4", isLiked && "fill-current")} />
+                      {likesCount}
+                    </Button>
+                  </TooltipTrigger>
+                  {!user && <TooltipContent>Sign in to react</TooltipContent>}
+                </Tooltip>
+              </TooltipProvider>
               <Button variant="ghost" size="sm" className="gap-1.5">
                 <MessageCircle className="h-4 w-4" />
                 {comments.length}
@@ -240,12 +384,29 @@ const PostPage = () => {
               </span>
             </div>
             <div className="flex gap-2">
-              <Button variant="ghost" size="icon">
-                <Bookmark className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="icon">
-                <Share2 className="h-4 w-4" />
-              </Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={user ? "" : "opacity-60 cursor-not-allowed"}
+                    >
+                      <Bookmark className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  {!user && <TooltipContent>Sign in to save</TooltipContent>}
+                </Tooltip>
+              </TooltipProvider>
+              <ShareMenu
+                title={post.title}
+                path={`/post/${post.id}`}
+                trigger={
+                  <Button variant="ghost" size="icon">
+                    <Share2 className="h-5 w-5" />
+                  </Button>
+                }
+              />
             </div>
           </div>
         </motion.article>
@@ -259,20 +420,31 @@ const PostPage = () => {
         >
           <h3 className="terminal-heading text-lg font-bold">comments ({comments.length})</h3>
 
-          <div className="mt-4">
-            <Textarea
-              placeholder="Share your thoughts..."
-              className="min-h-[100px]"
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-            />
-            <div className="mt-3 flex justify-end">
-              <Button onClick={handlePostComment} disabled={submittingComment || !newComment.trim()}>
-                {submittingComment && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Post Comment
-              </Button>
+          {user ? (
+            <div className="mt-4">
+              <Textarea
+                placeholder="Share your thoughts..."
+                className="min-h-[100px]"
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+              />
+              <div className="mt-3 flex justify-end">
+                <Button onClick={handlePostComment} disabled={submittingComment || !newComment.trim()}>
+                  {submittingComment && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Post Comment
+                </Button>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="mt-6 rounded-xl border border-dashed border-primary/20 bg-primary/5 p-8 text-center">
+              <p className="text-muted-foreground mb-4 font-medium">Want to join the discussion?</p>
+              <Link to="/auth/sign-in">
+                <Button variant="outline" className="gap-2">
+                  Sign in to Comment
+                </Button>
+              </Link>
+            </div>
+          )}
 
           <div className="mt-6 border-t border-border pt-6 space-y-6">
             {comments.length > 0 ? (
@@ -300,6 +472,30 @@ const PostPage = () => {
           </div>
         </motion.div>
       </div>
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete this post?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete your post and remove all its data from our servers.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleDelete();
+              }}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };

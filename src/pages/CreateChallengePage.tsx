@@ -26,7 +26,6 @@ const CreateChallengePage = () => {
         example_input: '',
         example_output: '',
         constraints: '',
-        solution: '',
         tags: '',
         language_category: 'DSA'
     });
@@ -71,7 +70,6 @@ const CreateChallengePage = () => {
                 output_format: formData.output_format,
                 examples: examples,
                 constraints: formData.constraints,
-                solution: formData.solution || null,
                 tags: formData.tags.split(',').map(t => t.trim()).filter(Boolean),
                 language_category: formData.language_category,
                 user_id: user.id,
@@ -243,18 +241,6 @@ const CreateChallengePage = () => {
                                 </SelectContent>
                             </Select>
                         </div>
-                    </div>
-
-                    {/* Reference Solution */}
-                    <div className="space-y-2">
-                        <Label>Reference Solution (Optional)</Label>
-                        <Textarea
-                            placeholder="Share the optimal approach or code..."
-                            className="min-h-[150px] font-mono text-sm"
-                            value={formData.solution}
-                            onChange={(e) => handleInputChange('solution', e.target.value)}
-                        />
-                        <p className="text-xs text-muted-foreground">Visible only after users attempt the challenge (future feature) or on details page.</p>
                     </div>
 
                     {/* Actions */}

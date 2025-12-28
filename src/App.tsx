@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import DocsPage from './pages/DocsPage';
 import { AuthProvider } from "./contexts/AuthContext";
 import { Layout } from "./components/layout/Layout";
 import { Loader2 } from "lucide-react";
@@ -74,6 +75,7 @@ const App = () => (
               <Route path="/create" element={<CreatePostPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/post/:id" element={<PostPage />} />
+              <Route path="/docs" element={<DocsPage />} />
               <Route path="*" element={<NotFound />} />
             </Route>
           </Routes>

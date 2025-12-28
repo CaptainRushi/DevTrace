@@ -1,16 +1,19 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Zap, Send, Loader2, Lock } from 'lucide-react';
+import { Zap, Send, Loader2, Lock, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { getDailyHighlights, createDailyHighlight } from '@/services/api';
+import { ShareMenu } from '@/components/common/ShareMenu';
 
 export const DailyHighlightWidget = () => {
     const { user } = useAuth();
-    const [todaysHighlight, setTodaysHighlight] = useState<any>(null);
+    const [todaysHighlights, setTodaysHighlights] = useState<any[]>([]);
+    const [userHasPostedToday, setUserHasPostedToday] = useState(false);
     const [loading, setLoading] = useState(true);
     const [isPosting, setIsPosting] = useState(false);
     const [showForm, setShowForm] = useState(false);
@@ -18,22 +21,24 @@ export const DailyHighlightWidget = () => {
 
     const today = new Date().toISOString().split('T')[0];
 
-    const fetchTodaysHighlight = async () => {
+    const fetchTodaysHighlights = async () => {
         try {
-            const { data, error } = await supabase
-                .from('daily_highlights')
-                .select('*, author:users!daily_highlights_posted_by_fkey(*)')
-                .eq('posted_date', today)
-                .single();
+            const data = await getDailyHighlights(supabase);
+            const foundToday = data.filter(h => h.posted_date === today);
 
-            if (error && error.code !== 'PGRST116') throw error; // PGRST116 is 'not found'
+            setTodaysHighlights(foundToday.map(h => ({
+                ...h,
+                authorName: h.author.displayName,
+                authorAvatar: h.author.avatar,
+                authorId: h.author.id
+            })));
 
-            if (data) {
-                setTodaysHighlight({
-                    ...data,
-                    authorName: data.author?.username || 'Unknown',
-                    authorAvatar: data.author?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${data.author?.username}`
-                });
+            // Check if the current user has already posted today
+            if (user) {
+                const userHighlight = foundToday.find(h => h.author.id === user.id);
+                setUserHasPostedToday(!!userHighlight);
+            } else {
+                setUserHasPostedToday(false);
             }
         } catch (e) {
             console.error("Fetch highlight error", e);
@@ -43,7 +48,7 @@ export const DailyHighlightWidget = () => {
     };
 
     useEffect(() => {
-        fetchTodaysHighlight();
+        fetchTodaysHighlights();
 
         // Subscribe to real-time updates for today's highlights
         const channel = supabase
@@ -51,7 +56,7 @@ export const DailyHighlightWidget = () => {
             .on('postgres_changes',
                 { event: 'INSERT', schema: 'public', table: 'daily_highlights', filter: `posted_date=eq.${today}` },
                 (payload) => {
-                    fetchTodaysHighlight(); // Refresh on new insert
+                    fetchTodaysHighlights(); // Refresh on new insert
                 }
             )
             .subscribe();
@@ -59,11 +64,15 @@ export const DailyHighlightWidget = () => {
         return () => {
             supabase.removeChannel(channel);
         };
-    }, []);
+    }, [user]);
 
     const handlePost = async () => {
         if (!user) {
             toast.error("Login to post");
+            return;
+        }
+        if (userHasPostedToday) {
+            toast.error("You can post only one highlight per day.");
             return;
         }
         if (!content.trim()) {
@@ -82,28 +91,20 @@ export const DailyHighlightWidget = () => {
 
         setIsPosting(true);
         try {
-            const { error } = await supabase.from('daily_highlights').insert({
-                content: content.trim(),
-                posted_by: user.id,
-                posted_date: today
-            });
-
-            if (error) {
-                if (error.code === '23505') { // Unique violation
-                    toast.error("Today's highlight was just posted by someone else!");
-                    fetchTodaysHighlight();
-                } else {
-                    throw error;
-                }
+            await createDailyHighlight(supabase, content.trim());
+            toast.success("Highlight posted!");
+            setContent('');
+            setShowForm(false);
+            fetchTodaysHighlights();
+        } catch (error: any) {
+            if (error.code === '23505') { // Unique violation - user already posted today
+                toast.error("You can post only one highlight per day.");
+                setUserHasPostedToday(true);
+                fetchTodaysHighlights();
             } else {
-                toast.success("Highlight posted!");
-                setContent('');
-                setShowForm(false);
-                fetchTodaysHighlight();
+                console.error(error);
+                toast.error("Failed to post");
             }
-        } catch (e) {
-            console.error(e);
-            toast.error("Failed to post");
         } finally {
             setIsPosting(false);
         }
@@ -127,26 +128,95 @@ export const DailyHighlightWidget = () => {
                         </span>
                     </div>
 
-                    {todaysHighlight ? (
-                        <div className="mt-3">
-                            <p className="text-xl md:text-2xl font-medium leading-relaxed text-foreground">
-                                "{todaysHighlight.content}"
-                            </p>
-                            <div className="mt-4 flex items-center gap-2">
-                                <img
-                                    src={todaysHighlight.authorAvatar}
-                                    alt={todaysHighlight.authorName}
-                                    className="h-6 w-6 rounded-full border border-border"
-                                />
-                                <span className="text-sm text-muted-foreground">
-                                    by <span className="font-semibold text-foreground">{todaysHighlight.authorName}</span>
-                                </span>
-                            </div>
+                    {todaysHighlights.length > 0 ? (
+                        <div className="mt-3 space-y-4">
+                            {todaysHighlights.map((highlight, idx) => (
+                                <div key={highlight.id || idx} className="border-l-2 border-primary/30 pl-4">
+                                    <p className="text-xl md:text-2xl font-medium leading-relaxed text-foreground">
+                                        "{highlight.content}"
+                                    </p>
+                                    <div className="mt-2 flex items-center gap-2">
+                                        <img
+                                            src={highlight.authorAvatar}
+                                            alt={highlight.authorName}
+                                            className="h-6 w-6 rounded-full border border-border"
+                                        />
+                                        <span className="text-sm text-muted-foreground">
+                                            by <span className="font-semibold text-foreground">{highlight.authorName}</span>
+                                        </span>
+                                        <div className="ml-auto">
+                                            <ShareMenu
+                                                title={`Today's Highlight by ${highlight.authorName}`}
+                                                path="/highlights"
+                                                trigger={
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
+                                                        <Share2 className="h-4 w-4" />
+                                                    </Button>
+                                                }
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+
+                            {/* Show form for users who haven't posted yet */}
+                            {user && !userHasPostedToday && (
+                                <div className="mt-4 pt-4 border-t border-border/50">
+                                    {!showForm ? (
+                                        <Button
+                                            onClick={() => setShowForm(true)}
+                                            variant="outline"
+                                            size="sm"
+                                            className="gap-2"
+                                        >
+                                            <Zap className="h-4 w-4" />
+                                            Add Your Highlight
+                                        </Button>
+                                    ) : (
+                                        <motion.div
+                                            initial={{ opacity: 0, height: 0 }}
+                                            animate={{ opacity: 1, height: 'auto' }}
+                                            className="space-y-3 max-w-lg"
+                                        >
+                                            <div className="relative">
+                                                <Textarea
+                                                    value={content}
+                                                    onChange={(e) => setContent(e.target.value)}
+                                                    placeholder="Share your highlight! (Max 200 chars)"
+                                                    maxLength={200}
+                                                    className="resize-none pr-12 min-h-[80px] text-lg"
+                                                />
+                                                <div className="absolute bottom-2 right-2 text-xs text-muted-foreground">
+                                                    {content.length}/200
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <Button
+                                                    size="sm"
+                                                    onClick={handlePost}
+                                                    disabled={isPosting || !content.trim()}
+                                                    className="gap-2"
+                                                >
+                                                    {isPosting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                                                    Post
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    onClick={() => setShowForm(false)}
+                                                >
+                                                    Cancel
+                                                </Button>
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     ) : (
                         <div className="mt-2">
                             <p className="text-muted-foreground mb-4">
-                                No highlight yet today. Be the one to set the tone!
+                                No highlight yet today. Be the first to set the tone!
                             </p>
 
                             {!showForm ? (
@@ -203,11 +273,11 @@ export const DailyHighlightWidget = () => {
                     )}
                 </div>
 
-                {/* Right side status / lock icon if posted */}
-                {todaysHighlight && !showForm && (
+                {/* Right side status / lock icon if user has posted */}
+                {userHasPostedToday && !showForm && (
                     <div className="hidden sm:flex flex-col items-end text-right text-muted-foreground">
                         <Lock className="h-5 w-5 mb-1" />
-                        <span className="text-xs">Locked for today</span>
+                        <span className="text-xs">You've posted today</span>
                     </div>
                 )}
             </div>

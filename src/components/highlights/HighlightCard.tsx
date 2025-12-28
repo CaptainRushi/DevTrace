@@ -2,6 +2,8 @@ import { memo } from 'react';
 import { motion } from 'framer-motion';
 // import { DailyHighlight } from '@/data/mockData';
 import { Link } from 'react-router-dom';
+import { Share2 } from 'lucide-react';
+import { ShareMenu } from '@/components/common/ShareMenu';
 
 interface DailyHighlight {
   id: string;
@@ -90,6 +92,17 @@ export const HighlightCard = memo(({ highlight, index = 0 }: HighlightCardProps)
               <button className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-primary/20 hover:text-primary">
                 +
               </button>
+              <div className="ml-auto">
+                <ShareMenu
+                  title={`Highlight by ${highlight.author.displayName}`}
+                  path="/highlights"
+                  trigger={
+                    <button className="p-2 text-muted-foreground hover:text-primary transition-colors">
+                      <Share2 className="h-4 w-4" />
+                    </button>
+                  }
+                />
+              </div>
             </div>
           </div>
         </div>

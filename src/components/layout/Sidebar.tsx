@@ -7,6 +7,7 @@ import {
   Zap,
   Wrench,
   Github,
+  Book,
   Loader2,
   ChevronRight, // Kept only if needed for something else, but likely removing
 } from 'lucide-react';
@@ -35,7 +36,7 @@ const mainNavItems = [
   { icon: Briefcase, label: 'Jobs', href: '/jobs' },
   { icon: Wrench, label: 'Tools & Stack', href: '/tools' },
   { icon: Github, label: 'Open Source', href: '/open-source' },
-];
+  { icon: Book, label: 'Documentation', href: '/docs' },];
 
 import { useQuery } from '@tanstack/react-query';
 
@@ -47,16 +48,17 @@ export function Sidebar({ open, onClose }: SidebarProps) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('communities')
-        .select('id, name, slug, icon')
+        .select('*')
         .limit(10);
 
       if (error) throw error;
 
-      return data.map(c => ({
+      return data.map((c: any) => ({
         id: c.id,
         name: c.name,
         slug: c.slug,
-        memberCount: 0,
+        memberCount: c.member_count || 0,
+        postCount: c.posts_count || 0,
         icon: c.icon || '🌍'
       }));
     },
@@ -152,7 +154,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                           </Link>
                         </TooltipTrigger>
                         <TooltipContent side="right">
-                          {community.name}
+                          {community.name} <span className="text-muted-foreground opacity-80">({community.postCount || 0})</span>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>

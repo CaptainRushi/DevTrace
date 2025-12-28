@@ -13,13 +13,16 @@ import { SectionHeader } from '@/components/common/SectionHeader';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/lib/supabase';
-import { getPosts } from '@/services/api';
+import { getPosts, getDailyHighlights } from '@/services/api';
 import { DailyHighlightWidget } from '@/components/highlights/DailyHighlightWidget';
 import { PostSkeleton, CommunitySkeleton, JobSkeleton, HighlightSkeleton } from '@/components/common/Skeletons';
+import { useAuth } from '@/contexts/AuthContext';
+import { GuestAccessPrompt } from '@/components/common/GuestAccessPrompt';
 
 type FeedFilter = 'latest' | 'top' | 'discussions' | 'questions';
 
 const Index = () => {
+  const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const hashtagFilter = searchParams.get('hashtag');
   const [filter, setFilter] = useState<FeedFilter>('latest');
@@ -62,25 +65,7 @@ const Index = () => {
   const { data: highlights = [], isLoading: highlightsLoading } = useQuery({
     queryKey: ['recent-highlights'],
     queryFn: async () => {
-      const { data: hlData, error } = await supabase
-        .from('daily_highlights')
-        .select('*, author:users!daily_highlights_posted_by_fkey(*)')
-        .order('created_at', { ascending: false })
-        .limit(3);
-
-      if (error) throw error;
-
-      return (hlData || []).map(h => ({
-        id: h.id,
-        content: h.content,
-        createdAt: h.created_at,
-        author: {
-          displayName: h.author?.username || 'Unknown',
-          username: h.author?.username || 'unknown',
-          avatar: h.author?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${h.author?.username}`
-        },
-        reactions: []
-      }));
+      return await getDailyHighlights(supabase);
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
@@ -137,7 +122,7 @@ const Index = () => {
               animate={{ opacity: 1, y: 0 }}
               className="text-3xl font-bold text-foreground"
             >
-              Welcome to <span className="text-gradient">dev.community</span>
+              Welcome to <span className="text-gradient">DevTrace</span>
             </motion.h1>
           </div>
 
@@ -207,12 +192,16 @@ const Index = () => {
             </div>
           )}
 
-          {/* Load More - Hide if no posts */}
+          {/* Load More or Guest Prompt */}
           {!loading && posts.length > 0 && (
             <div className="flex justify-center pt-4">
-              <Button variant="outline" size="lg">
-                Load More Posts
-              </Button>
+              {user ? (
+                <Button variant="outline" size="lg">
+                  Load More Posts
+                </Button>
+              ) : (
+                <GuestAccessPrompt />
+              )}
             </div>
           )}
         </div>

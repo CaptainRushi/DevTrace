@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import { Link } from 'react-router-dom';
-import { MapPin, ExternalLink } from 'lucide-react';
+import { MapPin, ExternalLink, Share2 } from 'lucide-react';
+import { ShareMenu } from '@/components/common/ShareMenu';
 import { motion } from 'framer-motion';
 // import { Job } from '@/data/mockData';
 import { Badge } from '@/components/ui/badge';
@@ -95,10 +96,23 @@ export const JobCard = memo(({ job, index = 0 }: JobCardProps) => {
               <span className="text-xs text-muted-foreground">
                 Posted {new Date(job.postedAt).toLocaleDateString()}
               </span>
-              <Button size="sm" className="gap-1.5">
-                Apply
-                <ExternalLink className="h-3 w-3" />
-              </Button>
+              <div className="flex items-center gap-2">
+                <div onClick={(e) => e.preventDefault()}>
+                  <ShareMenu
+                    title={`${job.title} at ${job.company}`}
+                    path={`/jobs/${job.id}`}
+                    trigger={
+                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
+                        <Share2 className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                    }
+                  />
+                </div>
+                <Button size="sm" className="gap-1.5">
+                  Apply
+                  <ExternalLink className="h-3 w-3" />
+                </Button>
+              </div>
             </div>
           </div>
         </div>
