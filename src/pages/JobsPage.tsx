@@ -24,7 +24,8 @@ const JobsPage = () => {
       try {
         const { data, error } = await supabase
           .from('job_posts')
-          .select('*');
+          .select('*')
+          .gt('expires_at', new Date().toISOString());
 
         if (error) throw error;
 
@@ -38,7 +39,8 @@ const JobsPage = () => {
             salary: 'Competitive',
             postedAt: job.created_at,
             tags: job.stack || [],
-            logo: `https://ui-avatars.com/api/?name=${encodeURIComponent(job.company)}&background=random`
+            logo: `https://ui-avatars.com/api/?name=${encodeURIComponent(job.company)}&background=random`,
+            expiresAt: job.expires_at
           })));
         }
       } catch (e) {

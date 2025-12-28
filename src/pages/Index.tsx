@@ -77,6 +77,7 @@ const Index = () => {
       const { data: jobData, error } = await supabase
         .from('job_posts')
         .select('*')
+        .gt('expires_at', new Date().toISOString())
         .order('created_at', { ascending: false })
         .limit(3);
 
@@ -91,7 +92,8 @@ const Index = () => {
         location: j.location,
         salary: 'Competitive',
         tags: j.stack || [],
-        postedAt: j.created_at
+        postedAt: j.created_at,
+        expiresAt: j.expires_at
       }));
     },
     staleTime: 1000 * 60 * 15, // 15 minutes

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Briefcase, MapPin, Globe, Loader2, Send } from 'lucide-react';
+import { ArrowLeft, Briefcase, MapPin, Globe, Loader2, Send, Clock } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,6 +25,7 @@ const CreateJobPage = () => {
         description: '',
         apply_link: '',
         tags: '',
+        duration: '7'
     });
 
     const handleInputChange = (field: string, value: string) => {
@@ -53,6 +54,11 @@ const CreateJobPage = () => {
 
         setIsSubmitting(true);
         try {
+            // Calculate expiry
+            const days = parseInt(formData.duration);
+            const expiresAt = new Date();
+            expiresAt.setDate(expiresAt.getDate() + days);
+
             const { error } = await supabase.from('job_posts').insert({
                 role: formData.job_title,
                 type: formData.job_type,
@@ -61,7 +67,8 @@ const CreateJobPage = () => {
                 description: formData.description,
                 apply_link: formData.apply_link,
                 stack: formData.tags.split(',').map(t => t.trim()).filter(Boolean),
-                user_id: user.id
+                user_id: user.id,
+                expires_at: expiresAt.toISOString()
             });
 
             if (error) throw error;
@@ -152,6 +159,28 @@ const CreateJobPage = () => {
                                 />
                             </div>
                         </div>
+                    </div>
+
+                    {/* Duration Selection */}
+                    <div className="space-y-2">
+                        <Label>Listing Duration</Label>
+                        <div className="relative">
+                            <Clock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                            <Select
+                                value={formData.duration}
+                                onValueChange={(val) => handleInputChange('duration', val)}
+                            >
+                                <SelectTrigger className="pl-9">
+                                    <SelectValue placeholder="Select duration" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="7">7 Days</SelectItem>
+                                    <SelectItem value="14">14 Days</SelectItem>
+                                    <SelectItem value="30">30 Days</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <p className="text-xs text-muted-foreground">Job will automatically expire after this period.</p>
                     </div>
 
                     {/* Description */}

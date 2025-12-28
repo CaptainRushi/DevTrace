@@ -22,6 +22,7 @@ const JobDetailsPage = () => {
                     .from('job_posts')
                     .select('*')
                     .eq('id', id)
+                    .gt('expires_at', new Date().toISOString())
                     .single();
 
                 if (error) throw error;
