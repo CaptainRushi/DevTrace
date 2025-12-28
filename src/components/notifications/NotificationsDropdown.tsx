@@ -99,9 +99,15 @@ export function NotificationsDropdown() {
     };
 
     const getLink = (notif: AppNotification) => {
+        // Canonical Deep Linking
+        if (notif.target_post_id) {
+            return `/post/${notif.target_post_id}`; // Always open the post
+        }
+
         switch (notif.entity_type) {
             case 'post': return `/post/${notif.entity_id}`;
-            case 'project': return `/open-source`; // Ideally deep link to project
+            case 'comment': return `/post/${notif.entity_id}`; // Legacy/Fallback (might break if entity_id is comment id, but handled by target_post_id logic above)
+            case 'project': return `/open-source`;
             case 'job': return `/jobs/${notif.entity_id}`;
             case 'challenge': return `/challenges/${notif.entity_id}`;
             default: return '/';

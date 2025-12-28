@@ -239,7 +239,16 @@ const PostPage = () => {
     return (
       <>
         <div className="flex items-center justify-center min-h-[50vh]">
-          <p className="text-muted-foreground">Post not found</p>
+          <div className="text-center space-y-3">
+            <h2 className="text-xl font-semibold">This post is no longer available</h2>
+            <p className="text-muted-foreground">It might have been deleted or removed.</p>
+            <Link to="/">
+              <Button variant="outline" className="gap-2 mt-4">
+                <ArrowLeft className="h-4 w-4" />
+                Return Home
+              </Button>
+            </Link>
+          </div>
         </div>
       </>
     );

@@ -201,19 +201,18 @@ export async function toggleLike(supabase: SupabaseClient, postId: string, curre
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Must be logged in");
 
-    if (currentLikeStatus) {
-        // Unlike: Remove from post_likes
-        const { error } = await supabase
-            .from('post_likes')
-            .delete()
-            .match({ post_id: postId, user_id: user.id });
-        if (error) throw error;
-    } else {
-        // Like: Add to post_likes
-        const { error } = await supabase
-            .from('post_likes')
-            .insert({ post_id: postId, user_id: user.id });
-        if (error) throw error;
+    // Use RPC for atomic, permission-safe, idempotent operation
+    // We pass `!currentLikeStatus` because if it WAS liked (true), we want to UNLIKE (false)
+    const shouldLike = !currentLikeStatus;
+
+    const { error } = await supabase.rpc('toggle_like', {
+        target_post_id: postId,
+        should_like: shouldLike
+    });
+
+    if (error) {
+        console.error("Toggle Like RPC Error:", error);
+        throw error;
     }
 }
 
@@ -395,6 +394,8 @@ export type AppNotification = {
     message?: string;
     created_at: string;
     actor?: Profile;
+    target_post_id?: string;
+    target_comment_id?: string;
 };
 
 export async function createNotification(

@@ -179,7 +179,7 @@ export const PostCard = memo(({ post, index = 0, variant = 'default' }: PostCard
       await toggleLike(supabase, post.id, wasLiked);
     } catch (error) {
       console.error(error);
-      toast.error("Failed to update like");
+      toast.error("Could not update like. Please try again.");
       // Rollback on failure to exact previous state
       setLiked(wasLiked);
       setLikesCount(oldLikesCount);
