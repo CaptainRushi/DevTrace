@@ -74,7 +74,7 @@ export const HighlightCard = memo(({ highlight, index = 0 }: HighlightCardProps)
               </span>
             </div>
 
-            <p className="mt-2 text-foreground">
+            <p className="mt-2 text-foreground font-iceland text-xl tracking-wide">
               {highlight.content}
             </p>
 

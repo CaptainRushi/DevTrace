@@ -55,7 +55,7 @@ export function ChallengeCard({ challenge, index = 0 }: ChallengeCardProps) {
           </div>
 
           <Link to={`/challenges/${challenge.id}`}>
-            <h3 className="mt-3 font-semibold text-foreground group-hover:text-primary transition-colors">
+            <h3 className="mt-3 font-iceland text-xl font-semibold text-foreground group-hover:text-primary transition-colors">
               {challenge.title}
             </h3>
           </Link>
