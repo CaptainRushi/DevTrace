@@ -126,7 +126,7 @@ export function EditProfileDialog({ currentProfile, onProfileUpdate, children }:
             const skillArray = skills.split(',').map((s: string) => s.trim()).filter((s: string) => s);
 
             await updateProfile(supabase, {
-                username,
+                username: username.trim().toLowerCase(),
                 bio,
                 skills: skillArray,
                 avatar_url: uploadedAvatarUrl,
