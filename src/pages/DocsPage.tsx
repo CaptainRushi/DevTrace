@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Book, Search, ChevronRight, FileText, Code, Users, Zap, Terminal, Github, User, Settings, Shield, AlertTriangle } from 'lucide-react';
+import { Book, Search, ChevronRight, FileText, Code, Users, Zap, Terminal, Github, User, Settings, Shield, AlertTriangle, ExternalLink } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
@@ -292,6 +292,63 @@ const docsData: DocSection[] = [
                         </ul>
                     </div>
                 </div>
+            </div>
+        )
+    },
+    {
+        id: 'trace-platform',
+        title: 'Trace Platform',
+        icon: ExternalLink,
+        content: (
+            <div className="space-y-6">
+                <h1 className="text-3xl font-bold">Trace Platform</h1>
+                <p className="text-muted-foreground">Access our extended platform for advanced development tools.</p>
+
+                <section className="space-y-4">
+                    <h2 className="text-2xl font-semibold">What is Trace Platform?</h2>
+                    <p>
+                        Trace Platform is our extended developer ecosystem that provides additional tools and features
+                        beyond the core DevTrace community. It includes advanced analytics, project management tools,
+                        and collaboration features designed to supercharge your development workflow.
+                    </p>
+                </section>
+
+                <section className="space-y-4">
+                    <h2 className="text-2xl font-semibold">Accessing Trace Platform</h2>
+                    <p>
+                        You can access Trace Platform directly from the sidebar by clicking the
+                        <span className="inline-flex items-center gap-1 mx-1 px-2 py-1 bg-primary/10 text-primary rounded">
+                            <ExternalLink className="h-3 w-3" /> Trace Platform
+                        </span>
+                        icon. This will open the platform in a new tab, allowing you to seamlessly switch between DevTrace and Trace Platform.
+                    </p>
+                    <div className="bg-muted/50 border border-border p-4 rounded-xl">
+                        <h3 className="font-semibold mb-2">Quick Access:</h3>
+                        <ul className="list-none space-y-2 text-sm">
+                            <li className="flex items-center gap-2">
+                                <ExternalLink className="h-4 w-4 text-primary" />
+                                <a
+                                    href="https://trace-dev.vercel.app/"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-primary hover:underline"
+                                >
+                                    Visit Trace Platform
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </section>
+
+                <section className="space-y-4">
+                    <h2 className="text-2xl font-semibold">Key Features</h2>
+                    <ul className="list-disc list-inside space-y-2 ml-4 text-muted-foreground">
+                        <li>Advanced project tracking and analytics</li>
+                        <li>Enhanced collaboration tools</li>
+                        <li>Integrated development environment features</li>
+                        <li>Cross-platform synchronization</li>
+                    </ul>
+                </section>
             </div>
         )
     }

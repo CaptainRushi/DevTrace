@@ -24,6 +24,11 @@ DevTrace is a high-performance, community-driven platform designed for developer
 - **Rich Activity Tracking**: Showcase your posts, challenges, and contributions in one place.
 - **Social Interactions**: Robust system for following users, liking content, and saving resources.
 
+### 🔗 Trace Platform Integration
+- **Direct Access**: Seamlessly access the extended Trace Platform directly from the sidebar.
+- **External Link**: Opens in a new tab for easy workflow switching.
+- **Extended Features**: Access advanced analytics, project management, and collaboration tools.
+
 ## 🛠️ Tech Stack
 
 - **Frontend**: [React](https://reactjs.org/) + [Vite](https://vitejs.dev/)

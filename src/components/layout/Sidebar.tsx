@@ -10,6 +10,7 @@ import {
   Book,
   Loader2,
   ChevronRight, // Kept only if needed for something else, but likely removing
+  ExternalLink,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -36,7 +37,9 @@ const mainNavItems = [
   { icon: Briefcase, label: 'Jobs', href: '/jobs' },
   { icon: Wrench, label: 'Tools & Stack', href: '/tools' },
   { icon: Github, label: 'Open Source', href: '/open-source' },
-  { icon: Book, label: 'Documentation', href: '/docs' },];
+  { icon: Book, label: 'Documentation', href: '/docs' },
+  { icon: ExternalLink, label: 'Trace Platform', href: 'https://trace-dev.vercel.app/', external: true },
+];
 
 import { useQuery } from '@tanstack/react-query';
 
@@ -93,20 +96,35 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                 <TooltipProvider key={item.href} delayDuration={0}>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Link
-                        to={item.href}
-                        onClick={onClose}
-                        onMouseEnter={() => prefetchPage(item.href)}
-                        className={cn(
-                          'flex justify-center items-center rounded-lg py-3 transition-colors',
-                          isActive
-                            ? 'bg-sidebar-accent text-primary'
-                            : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
-                        )}
-                        aria-label={item.label}
-                      >
-                        <item.icon className="h-6 w-6" />
-                      </Link>
+                      {item.external ? (
+                        <a
+                          href={item.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={cn(
+                            'flex justify-center items-center rounded-lg py-3 transition-colors',
+                            'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+                          )}
+                          aria-label={item.label}
+                        >
+                          <item.icon className="h-6 w-6" />
+                        </a>
+                      ) : (
+                        <Link
+                          to={item.href}
+                          onClick={onClose}
+                          onMouseEnter={() => prefetchPage(item.href)}
+                          className={cn(
+                            'flex justify-center items-center rounded-lg py-3 transition-colors',
+                            isActive
+                              ? 'bg-sidebar-accent text-primary'
+                              : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+                          )}
+                          aria-label={item.label}
+                        >
+                          <item.icon className="h-6 w-6" />
+                        </Link>
+                      )}
                     </TooltipTrigger>
                     <TooltipContent side="right">
                       {item.label}
